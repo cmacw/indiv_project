@@ -18,27 +18,34 @@ from mujoco_py.modder import TextureModder
 import math
 import os
 import scipy.misc
+from random import uniform
 
 
 class Simulator():
 
-    def __init__(self, model_path, dataset_name):
+    def __init__(self, model_path, dataset_name, rand=False):
         self.dataset_name = dataset_name
         self.model = mujoco_py.load_model_from_path(model_path)
         self.sim = mujoco_py.MjSim(self.model)
         self.offscreen = mujoco_py.MjRenderContextOffscreen(self.sim)
-        self.modder = TextureModder(self.sim)
+        self.viewer = mujoco_py.MjViewer(self.sim)
+        if rand == True:
+            self.modder = TextureModder(self.sim)
 
     def create_dataset(self, step, cameras):
+        self.sim.reset()
         self._make_dir()
         t = 0
 
         while True:
-            self.sim.data.ctrl[0] = math.cos(t / 10.) * 0.01
-            self.sim.data.ctrl[1] = math.sin(t / 10.) * 0.01
             t += 1
+
+            # self.sim.data.ctrl[0] = math.cos(t / 10.) * 0.01
+            # self.sim.data.ctrl[1] = math.sin(t / 10.) * 0.01
+            self._randomise_pos(1)
+
             self.sim.step()
-            self.offscreen.render(420, 380)
+            self.offscreen.render(1920, 1080)
 
             for name in self.sim.model.geom_names:
                 self.modder.rand_all(name)
@@ -51,6 +58,20 @@ class Simulator():
 
             if t == step or os.getenv('TESTING') is not None:
                 break
+
+    def render(self):
+        self.sim.reset()
+        t = 0
+        while True:
+            self.sim.step()
+            self.viewer.render()
+            if t > 100 and os.getenv('TESTING') is not None:
+                break
+
+    def _randomise_pos(self, index):
+        self.model.body_pos[index, 0] = uniform(-1, 1)
+        self.model.body_pos[index, 1] = uniform(-1, 1)
+        self.model.body_pos[index, 2] = uniform(-1, 1)
 
     def _make_dir(self):
         try:
@@ -69,7 +90,12 @@ class Simulator():
         True
 
 
-if __name__ == '__main__':
-    sim = Simulator("xmls/fetch/main.xml", "testset")
-    cameras = [-1, 1]
-    sim.create_dataset(10, cameras)
+# if __name__ == '__main__':
+#     sim = Simulator("xmls/box.xml", "testset", rand=True)
+#     cameras = [-1, 1]
+#
+#     # preview model
+#     sim.render()
+#
+#     # create dataset
+#     # sim.create_dataset(10, cameras)
