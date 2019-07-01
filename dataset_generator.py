@@ -5,6 +5,7 @@ import os
 import scipy.misc
 from random import uniform
 import numpy as np
+import time
 
 
 class Simulator():
@@ -118,5 +119,11 @@ if __name__ == '__main__':
     # preview model
     # sim.render()
 
+    t1 = time.time()
+
     # create dataset
-    sim.create_dataset(10, cameras)
+    sim.create_dataset(1000, cameras)
+
+    t2 = time.time()
+
+    print(f"Time to complete: {t2-t1} seconds")
