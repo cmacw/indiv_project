@@ -1,24 +1,10 @@
-# import mujoco_py as mj
-# import os
-#
-# mj_path, _ = mj.utils.discover_mujoco()
-# print(mj_path)
-# xml_path = os.path.join(mj_path, 'model', 'humanoid.xml')
-# model = mj.load_model_from_path(xml_path)
-# sim = mj.MjSim(model)
-#
-# print(sim.data.qpos)
-#
-# sim.step()
-# print(sim.data.qpos
-
-
 import mujoco_py
 from mujoco_py.modder import TextureModder
 import math
 import os
 import scipy.misc
 from random import uniform
+import numpy as np
 
 
 class Simulator():
@@ -31,33 +17,48 @@ class Simulator():
         self.viewer = mujoco_py.MjViewer(self.sim)
         if rand == True:
             self.modder = TextureModder(self.sim)
+        else:
+            self.modder = None
 
-    def create_dataset(self, step, cameras):
+    def create_dataset(self, steps, cameras):
         self.sim.reset()
         self._make_dir()
+
         t = 0
 
+        # initialise the position array
+        self.all_pos = np.zeros((steps, 2))
+
+        # generate dataset
         while True:
-            t += 1
 
-            # self.sim.data.ctrl[0] = math.cos(t / 10.) * 0.01
-            # self.sim.data.ctrl[1] = math.sin(t / 10.) * 0.01
-            self._randomise_pos(1)
+            # Randomised the position of the object
+            # It is currently hard coded for the x and y position for the cube
+            self._randomise_obj_pos(1, t)
 
+            # Randomised light source position
+            self._randomise_light_pos()
+
+            # Randomised material/texture if required
+            if self.modder is not None:
+                for name in self.sim.model.geom_names:
+                    self.modder.rand_all(name)
+
+            # Simulate and render in offscreen renderer
             self.sim.step()
-            self.offscreen.render(1920, 1080)
 
-            for name in self.sim.model.geom_names:
-                self.modder.rand_all(name)
-
-            temp = self.sim.get_state()
+            # Save images for all camera
             for cam in cameras:
                 self.offscreen.render(1920, 1080, cam)
                 rgb = self.offscreen.read_pixels(1920, 1080)[0][::-1, :, :]
                 self._save_fig_to_dir(rgb, t, cam)
 
-            if t == step or os.getenv('TESTING') is not None:
+            t += 1
+            if t == steps or os.getenv('TESTING') is not None:
                 break
+
+        # save the np array to csv
+        np.savetxt(self.dataset_name + '/' + self.dataset_name + '.csv', self.all_pos, delimiter=',')
 
     def render(self):
         self.sim.reset()
@@ -68,10 +69,30 @@ class Simulator():
             if t > 100 and os.getenv('TESTING') is not None:
                 break
 
-    def _randomise_pos(self, index):
-        self.model.body_pos[index, 0] = uniform(-1, 1)
-        self.model.body_pos[index, 1] = uniform(-1, 1)
-        self.model.body_pos[index, 2] = uniform(-1, 1)
+    def _randomise_obj_pos(self, obj_index, time):
+        x = uniform(-5, 5)
+        y = uniform(-5, 5)
+
+        # set position
+        # body_pos is hard coded for now
+        self.model.body_pos[obj_index, 0] = x
+        self.model.body_pos[obj_index, 1] = y
+
+        # save to position to np object
+        self._save_pos_2_np(time, x, y)
+
+    def _randomise_light_pos(self):
+        x = uniform(-5, 5)
+        y = uniform(-5, 5)
+
+        # set position
+        # body_pos is hard coded for now
+        self.model.light_pos[0, 0] = uniform(-10, 10)
+        self.model.light_pos[0, 1] = uniform(-10, 5)
+
+    def _save_pos_2_np(self, index, x, y):
+        self.all_pos[index, 0] = x
+        self.all_pos[index, 1] = y
 
     def _make_dir(self):
         try:
@@ -90,12 +111,12 @@ class Simulator():
         True
 
 
-# if __name__ == '__main__':
-#     sim = Simulator("xmls/box.xml", "testset", rand=True)
-#     cameras = [-1, 1]
-#
-#     # preview model
-#     sim.render()
-#
-#     # create dataset
-#     # sim.create_dataset(10, cameras)
+if __name__ == '__main__':
+    sim = Simulator("xmls/box.xml", "testset", rand=True)
+    cameras = [0]
+
+    # preview model
+    # sim.render()
+
+    # create dataset
+    sim.create_dataset(10, cameras)

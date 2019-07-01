@@ -8,26 +8,32 @@
 
             https://www.roboti.us/resourcelicense.txt
     -->
-
     <asset>
         <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="512"/>
         <texture name="texplane" type="2d" builtin="checker" rgb1=".2 .3 .4" rgb2=".1 0.15 0.2"
                  width="512" height="512" mark="cross" markrgb=".8 .8 .8"/>
+        <texture name="texbox" builtin="checker" rgb1="0.444 0.300 0.865" width="512" height="512"/>
+        <texture name="texwall" builtin="checker" rgb1="0.956 0.921 0.282" width="512" height="512"/>
 
-        <material name="matplane" reflectance="0.3" texture="texplane" texrepeat="1 1" texuniform="true"/>
+        <material name="matplane" texture="texplane" texrepeat="1 1" texuniform="true"/>
+        <material name="matbox" texture="texbox" reflectance="0.3" emission="0"/>
+        <material name="matwall" texture="texwall" reflectance="0.1" emission="0"/>
     </asset>
 
     <worldbody>
         <body name="box" pos="0 0 0.15">
-            <geom size="0.15 0.15 0.15" type="box"/>
+            <geom name="boxgeom" size="0.15 0.15 0.15" type="box" material="matbox"/>
             <joint axis="1 0 0" name="box:x" type="slide"/>
             <joint axis="0 1 0" name="box:y" type="slide"/>
         </body>
 
         <geom name="ground" type="plane" size="5 5 1" pos="0 0 0" quat="1 0 0 0" material="matplane" condim="1"/>
 
-        <camera name="camera1" pos="1 1 1" mode="fixed"/>
-        <camera name="camera2" pos="-1 -1 1" mode="fixed"/>
+        <geom name="wall" type="box" size="10 0.01 10" pos="0 5 0" material="matwall"/>
+
+        <light name="light1" pos="0 -5 10" mode="targetbody" target="box"/>
+
+        <camera name="camera1" pos="0 -10 10" mode="fixed" quat="0.9238795 0.3826834 0 0"/>
 
     </worldbody>
 </mujoco>
