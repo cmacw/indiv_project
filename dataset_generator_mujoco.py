@@ -1,4 +1,5 @@
 import mujoco_py
+from matplotlib import pyplot
 from mujoco_py.modder import TextureModder
 import math
 import os
@@ -52,6 +53,8 @@ class Simulator():
             for cam in cameras:
                 self.offscreen.render(1920, 1080, cam)
                 rgb = self.offscreen.read_pixels(1920, 1080)[0][::-1, :, :]
+                pyplot.imshow(rgb)
+                pyplot.show()
                 self._save_fig_to_dir(rgb, t, cam)
 
             t += 1
@@ -113,17 +116,17 @@ class Simulator():
 
 
 if __name__ == '__main__':
-    sim = Simulator("xmls/box.xml", "testset", rand=True)
+    sim = Simulator("xmls/box.xml", "testset_mj", rand=True)
     cameras = [0]
 
     # preview model
     # sim.render()
 
-    t1 = time.time()
+    t0 = time.time()
 
     # create dataset
-    sim.create_dataset(1000, cameras)
+    sim.create_dataset(1, cameras)
 
-    t2 = time.time()
+    t1 = time.time()
 
-    print(f"Time to complete: {t2-t1} seconds")
+    print(f"Time to complete: {t1-t0} seconds")

@@ -41,8 +41,8 @@ while True:
     # model.body_pos[1, 2] = random.uniform(-1, 1)
 
     # Change light box position randomly
-    model.light_pos[0, 0] = random.uniform(-10, 10)
-    model.light_pos[0, 1] = random.uniform(-10, 10)
+    # model.light_pos[0, 0] = random.uniform(-10, 10)
+    # model.light_pos[0, 1] = random.uniform(-10, 10)
 
 
     t += 1
