@@ -40,7 +40,7 @@
             <joint axis="0 1 0" name="box:y" type="slide"/>
         </body>
 
-        <geom name="ground" type="plane" size="5 5 1" pos="0 0 0" quat="1 0 0 0" material="matplane" condim="1"/>
+        <geom name="ground" type="plane" size="0 0 0.1" pos="0 0 0" quat="1 0 0 0" material="matplane" condim="1"/>
 
         <geom name="wall" type="box" size="10 0.01 10" pos="0 5 0" material="matwall"/>
 

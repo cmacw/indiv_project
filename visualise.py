@@ -1,18 +1,3 @@
-# import mujoco_py as mj
-# import os
-#
-# mj_path, _ = mj.utils.discover_mujoco()
-# print(mj_path)
-# xml_path = os.path.join(mj_path, 'model', 'humanoid.xml')
-# model = mj.load_model_from_path(xml_path)
-# sim = mj.MjSim(model)
-#
-# print(sim.data.qpos)
-#
-# sim.step()
-# print(sim.data.qpos
-
-
 import mujoco_py
 from mujoco_py.modder import TextureModder
 import math
