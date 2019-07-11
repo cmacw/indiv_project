@@ -17,36 +17,40 @@
         <texture name="texplane" type="2d" builtin="checker" rgb1=".2 .3 .4" rgb2=".1 0.15 0.2"
                  width="512" height="512" mark="cross" markrgb=".8 .8 .8"/>
         <texture name="texbox" builtin="checker" rgb1="0.444 0.300 0.865" width="512" height="512"/>
+        <texture name="texboxred" type="2d" builtin="flat" rgb1="0.9 0.2 0.2" width="512" height="512"/>
         <texture name="texwall" builtin="checker" rgb1="0.956 0.921 0.282" width="512" height="512"/>
 
         <!--png texture-->
         <texture name="texcarpet" type="2d" file="Texture/carpet.png"/>
         <texture name="texsponge" type="2d" file="Texture/sponge.png"/>
         <texture name="texmarble" type="cube" file="Texture/marble.png"/>
-        <texture name="texwood" type="cube" file="Texture/wood.png"/>
-        <texture name="texwood2" type="cube" file="Texture/Wood_012_SD/Wood_planks_012_basecolor.png"/>
+        <!--        <texture name="texwood" type="cube" file="Texture/wood.png"/>-->
+        <!--        <texture name="texwood2" type="cube" file="Texture/Wood_012_SD/Wood_planks_012_basecolor.png"/>-->
 
-        <!---->
-        <material name="matplane" texture="texplane" texrepeat="1 1" texuniform="true"/>
-        <material name="matbox" texture="texwood2" reflectance="0.3" emission="0"/>
-        <material name="matwall" texture="texwall" reflectance="0.1" emission="0"/>
+
+        <material name="matplane" texture="texplane" texrepeat="100 100" texuniform="false"/>
+        <material name="matbox" texture="texboxred" reflectance="1" emission="0"/>
+        <material name="matwall" texture="texwall" emission="0"/>
 
     </asset>
 
     <worldbody>
-        <body name="box" pos="0 0 0.15">
-            <geom name="boxgeom" size="0.15 0.15 0.15" type="box" material="matbox"/>
+        <body name="box" pos="0 0 0.05">
+            <geom name="boxgeom" size="0.05 0.05 0.05" type="box" material="matbox"/>
             <joint axis="1 0 0" name="box:x" type="slide"/>
             <joint axis="0 1 0" name="box:y" type="slide"/>
+            <!--                        <joint axis="0 0 1" name="box:z" type="slide"/>-->
         </body>
 
-        <geom name="ground" type="plane" size="0 0 0.1" pos="0 0 0" quat="1 0 0 0" material="matplane" condim="1"/>
+        <geom name="ground" type="plane" size="100 100 0.1" pos="0 0 0" quat="1 0 0 0" material="matplane" condim="1"/>
 
-        <geom name="wall" type="box" size="10 0.01 10" pos="0 5 0" material="matwall"/>
+<!--        <geom name="wall" type="box" size="10 0.01 10" pos="0 5 0" material="matwall"/>-->
 
         <light name="light1" pos="0 -5 10" mode="targetbody" target="box"/>
 
-        <camera name="camera1" pos="0 -10 10" mode="fixed" quat="0.9238795 0.3826834 0 0"/>
+        <camera name="camera1" pos="0 -10 10" mode="targetbody" target="box"/>
+        <camera name="camera2" pos="0 -15 15" mode="fixed" quat="0.9238795 0.3826834 0 0"/>
+
 
     </worldbody>
 </mujoco>

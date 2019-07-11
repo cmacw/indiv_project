@@ -5,6 +5,7 @@ import random
 import os
 import scipy.misc
 from matplotlib import pyplot
+import numpy as np
 
 model = mujoco_py.load_model_from_path("xmls/box.xml")
 
@@ -14,6 +15,11 @@ viewer = mujoco_py.MjViewer(sim)
 modder = TextureModder(sim)
 modder.whiten_materials()
 t = 0
+
+# An array that is 0.1 apart
+sample_values = np.arange(0, 1, 0.1)
+
+
 
 while True:
     # Change actuator input
@@ -29,14 +35,21 @@ while True:
     # model.light_pos[0, 0] = random.uniform(-10, 10)
     # model.light_pos[0, 1] = random.uniform(-10, 10)
 
+    # Change texture
+    # for name in sim.model.geom_names:
+    #     modder.rand_all(name)
+
+    # Change opengl parameters
+    # sim.model.mat_emission[1] = sample_values[t % 10]
+    # sim.model.mat_specular[1] = sample_values[t % 10]
+    sim.model.mat_shininess[1] = sample_values[t % 10]
+    # sim.model.mat_reflectance[1] = sample_values[t % 10]
+    print(sample_values[t % 10])
+
 
     t += 1
     sim.step()
     viewer.render()
-
-    # Change texture
-    # for name in sim.model.geom_names:
-    #     modder.rand_all(name)
 
     if t == 100 or t == 200:
         temp = sim.get_state()

@@ -12,47 +12,45 @@ from pathlib import Path
 
 class Simulator():
 
-    def __init__(self, model_path, dataset_name, offscreen=False, rand=False):
+    def __init__(self, model_path, dataset_name, rand=False, cam_pos_file=None, cam_norm_pos_file=None):
         self.dataset_name = dataset_name
         self.model = mujoco_py.load_model_from_path(model_path)
         self.sim = mujoco_py.MjSim(self.model)
-        self.obj_pos = None
+        self.viewer = mujoco_py.MjRenderContextOffscreen(self.sim, None)
+        self.cam_pos_file = cam_pos_file
+        self.cam_norm_pos_file = cam_norm_pos_file
+        self.cam_pos = None
+        self.modder = TextureModder(self.sim) if rand else None
 
-        if offscreen:
-            self.viewer = mujoco_py.MjRenderContextOffscreen(self.sim, None)
-        else:
-            self.viewer = mujoco_py.MjViewer(self.sim)
-
-        if rand:
-            self.modder = TextureModder(self.sim)
-        else:
-            self.modder = None
-
-    def render(self):
+    def on_screen_render(self, cam_index):
         self.sim.reset()
+        temp_viewer = mujoco_py.MjViewer(self.sim)
         t = 0
+
         while True:
+            self._set_cam_pos(cam_index, t, True)
+
             self.sim.step()
-            self.viewer.render()
+            temp_viewer.render()
+            t += 1
             if t > 100 and os.getenv('TESTING') is not None:
                 break
 
-    def create_dataset(self, steps, cameras):
+    def create_dataset(self, steps, r_max, r_min, pitch, yaw, roll, cameras):
         self.sim.reset()
         self._make_dir()
 
         t = 0
 
-        # initialise the position array
-        self.obj_pos = self._get_obj_pos(filename="testset_mj/testset_mj_obj_norm_pos.csv"
-                                         , pos_range=[-5, 5], n=steps)
+        # initialise the camera position array
+        self.cam_pos = self._get_cam_pos(r_max, r_min, pitch, yaw, roll, steps)
 
         # generate dataset
         while True:
 
             # Randomised the position of the object
-            # It is currently hard coded for the x and y position for the cube
-            self._set_obj_pos(1, t)
+            # Set camera position
+            self._set_cam_pos(0, t)
 
             # Randomised light source position
             self._randomise_light_pos()
@@ -75,34 +73,53 @@ class Simulator():
             if t == steps or os.getenv('TESTING') is not None:
                 break
 
-    def _get_camera_pos(self, radius, n=100000):
-        pos = np.random.rand(n, 3)
-
-
-    def _get_obj_pos(self, filename=None, pos_range=[-1, 1], n=100000):
+    def _get_cam_pos(self, r_max, r_min, pitch, yaw, roll, n=100000):
         # First, either find or create the normalised array
         # Second, scale the normalised array
-        # RETURN: n-by-2 np array
-        if filename is None:
-            pos = np.random.rand(n, 2)
-            filename = self.dataset_name + "/" + self.dataset_name + "_obj_norm_pos.csv"
-            np.savetxt(filename, pos, delimiter=",")
+        # RETURN: n-by-6 np array
+
+        if self.cam_pos_file:
+            pos = np.loadtxt(self.cam_pos_file, delimiter=",")[:n, :]
         else:
-            pos = np.loadtxt(filename, delimiter=",")[:n, :]
+            if self.cam_norm_pos_file:
+                norm = np.loadtxt(self.cam_norm_pos_file, delimiter=",")[:n, :]
+            else:
+                norm = np.random.rand(n, 6)
+                filename = "cam_norm_pos.csv"
+                np.savetxt(filename, norm, delimiter=",")
 
-        # Scale the normalised array
-        pos = pos * (pos_range[1] - pos_range[0]) + pos_range[0]
+            norm[:, 0] = norm[:, 0] * (r_max - r_min) + r_min
+            pos = np.zeros([n, 7])
+            pos[:, 0] = norm[:, 0] * np.cos(norm[:, 1] * 2 * np.pi) * np.sin(norm[:, 2] * np.pi / 2)
+            pos[:, 1] = norm[:, 0] * np.sin(norm[:, 1] * 2 * np.pi) * np.sin(norm[:, 2] * np.pi / 2)
+            pos[:, 2] = norm[:, 0] * np.cos(norm[:, 2] * np.pi / 2)
+            pos[:, 3] = norm[:, 3] * pitch
+            pos[:, 4] = norm[:, 4] * yaw
+            pos[:, 5] = norm[:, 5] * roll
+            pos[:, 6] = norm[:, 6]
 
-        # Save the actual position
-        filename = self.dataset_name + "/" + self.dataset_name + "_obj_pos.csv"
-        np.savetxt(filename, pos, delimiter=",")
+            filename = "cam_pos.csv"
+            np.savetxt(filename, pos, delimiter=",")
 
         return pos
 
-    def _set_obj_pos(self, obj_index, t):
+    def _set_cam_pos(self, cam_index, t, printPos=None):
+        # If no
+        if self.cam_pos is None:
+            self.cam_pos = self._get_cam_pos(1, 0.5, 0.1, 0.1, 0.1)
+
         # set position
-        self.model.body_pos[obj_index, 0] = self.obj_pos[t, 0]
-        self.model.body_pos[obj_index, 1] = self.obj_pos[t, 1]
+        self.model.cam_pos[cam_index] = self.cam_pos[t, 0:3]
+        # set orientation
+        # self.model.cam_mode[cam_index] = 0
+        # self.model.cam_quat[cam_index] = self.cam_pos[t, 3:7]
+        # self.model.cam_mode[cam_index] = 3
+        self.viewer.cam.azimuth += 20
+        self.viewer.cam.elevation += 25
+        # print("1: " + str(self.model.cam_quat[0, 1:4]) + ", 2: " + str(self.model.cam_quat[1, 1:4]))
+
+        if printPos:
+            print("The object positions is: ", self.cam_pos[t, :])
 
     def _randomise_light_pos(self):
         x = uniform(-5, 5)
@@ -130,22 +147,20 @@ class Simulator():
         filename = "image_t_{}_cam_{}.png".format(index, cam_index)
         scipy.misc.imsave(self.dataset_name + '/' + filename, rgb)
 
-    def _save_state(self, state):
-        True
-
 
 if __name__ == '__main__':
-    sim = Simulator("xmls/box.xml", "testset_mj", offscreen=True, rand=False)
+    os.chdir("datasets")
+    sim = Simulator("../xmls/box.xml", "random_mj", cam_norm_pos_file="cam_norm_pos.csv", rand=True)
     cameras = [0]
 
     # preview model
-    # sim.render()
+    sim.on_screen_render(0)
 
     t0 = time.time()
 
     # create dataset
-    sim.create_dataset(10, cameras)
+    # sim.create_dataset(10, 1, 0.3, 0, 0, 0, cameras)
 
     t1 = time.time()
 
-    print(f"Time to complete: {t1-t0} seconds")
+    print(f"Time to complete: {t1 - t0} seconds")
