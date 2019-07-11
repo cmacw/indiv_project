@@ -9,7 +9,9 @@
             https://www.roboti.us/resourcelicense.txt
     -->
     <visual>
-        <global offwidth="1920" offheight="1080"/>
+        <global offwidth="1920" offheight="1080" fovy="80"/>
+        <headlight ambient="0.5 0.5 0.5"/>
+        <quality shadowsize="4096"/>
     </visual>
 
     <asset>
@@ -35,22 +37,20 @@
     </asset>
 
     <worldbody>
-        <body name="box" pos="0 0 0.05">
-            <geom name="boxgeom" size="0.05 0.05 0.05" type="box" material="matbox"/>
-            <joint axis="1 0 0" name="box:x" type="slide"/>
-            <joint axis="0 1 0" name="box:y" type="slide"/>
-            <!--                        <joint axis="0 0 1" name="box:z" type="slide"/>-->
-        </body>
-
         <geom name="ground" type="plane" size="100 100 0.1" pos="0 0 0" quat="1 0 0 0" material="matplane" condim="1"/>
 
-<!--        <geom name="wall" type="box" size="10 0.01 10" pos="0 5 0" material="matwall"/>-->
+        <body name="box" pos="0 0 0.05">
+            <geom name="boxgeom" size="0.05 0.05 0.05" type="box" material="matbox"/>
+            <!--<joint axis="1 0 0" name="box:x" type="slide"/>-->
+            <!--<joint axis="0 1 0" name="box:y" type="slide"/>-->
+            <!--<joint axis="0 0 1" name="box:z" type="slide"/>-->
+        </body>
+
+        <!--<geom name="wall" type="box" size="10 0.01 10" pos="0 5 0" material="matwall"/>-->
 
         <light name="light1" pos="0 -5 10" mode="targetbody" target="box"/>
 
-        <camera name="camera1" pos="0 -10 10" mode="targetbody" target="box"/>
-        <camera name="camera2" pos="0 -15 15" mode="fixed" quat="0.9238795 0.3826834 0 0"/>
-
+        <camera name="camera1" pos="0 -10 10" mode="targetbody" target="box" fovy="120"/>
 
     </worldbody>
 </mujoco>

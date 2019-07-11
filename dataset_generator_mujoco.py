@@ -29,21 +29,22 @@ class Simulator():
 
         while True:
             self._set_cam_pos(cam_index, t, True)
-
             self.sim.step()
+            self._set_cam_orientation(cam_index, t)
+
             temp_viewer.render()
             t += 1
             if t > 100 and os.getenv('TESTING') is not None:
                 break
 
-    def create_dataset(self, steps, r_max, r_min, pitch, yaw, roll, cameras):
+    def create_dataset(self, steps, r_max, r_min, quant, cameras):
         self.sim.reset()
         self._make_dir()
 
         t = 0
 
         # initialise the camera position array
-        self.cam_pos = self._get_cam_pos(r_max, r_min, pitch, yaw, roll, steps)
+        self.cam_pos = self._get_cam_pos(r_max, r_min, quant, steps)
 
         # generate dataset
         while True:
@@ -65,18 +66,24 @@ class Simulator():
 
             # Save images for all camera
             for cam in cameras:
+                self._set_cam_orientation(cam, t)
                 self.viewer.render(1920, 1080, cam)
                 rgb = self.viewer.read_pixels(1920, 1080)[0][::-1, :, :]
                 self._save_fig_to_dir(rgb, t, cam)
 
             t += 1
+            # Print progress
+            if t % 100 == 0:
+                print("Progress: {} / {}".format(t, steps))
+
             if t == steps or os.getenv('TESTING') is not None:
+                print("Finish creating {} {} dataset".format(steps, self.dataset_name))
                 break
 
-    def _get_cam_pos(self, r_max, r_min, pitch, yaw, roll, n=100000):
+    def _get_cam_pos(self, r_max, r_min, quant, n=100000):
         # First, either find or create the normalised array
         # Second, scale the normalised array
-        # RETURN: n-by-6 np array
+        # RETURN: n-by-12 np array, 3 for position, 9 for camera orientation in cam_xmat
 
         if self.cam_pos_file:
             pos = np.loadtxt(self.cam_pos_file, delimiter=",")[:n, :]
@@ -84,42 +91,41 @@ class Simulator():
             if self.cam_norm_pos_file:
                 norm = np.loadtxt(self.cam_norm_pos_file, delimiter=",")[:n, :]
             else:
-                norm = np.random.rand(n, 6)
+                norm = np.random.rand(n, 12)
                 filename = "cam_norm_pos.csv"
                 np.savetxt(filename, norm, delimiter=",")
 
             norm[:, 0] = norm[:, 0] * (r_max - r_min) + r_min
-            pos = np.zeros([n, 7])
+            pos = np.zeros([n, 12])
             pos[:, 0] = norm[:, 0] * np.cos(norm[:, 1] * 2 * np.pi) * np.sin(norm[:, 2] * np.pi / 2)
             pos[:, 1] = norm[:, 0] * np.sin(norm[:, 1] * 2 * np.pi) * np.sin(norm[:, 2] * np.pi / 2)
-            pos[:, 2] = norm[:, 0] * np.cos(norm[:, 2] * np.pi / 2)
-            pos[:, 3] = norm[:, 3] * pitch
-            pos[:, 4] = norm[:, 4] * yaw
-            pos[:, 5] = norm[:, 5] * roll
-            pos[:, 6] = norm[:, 6]
+            pos[:, 2] = norm[:, 0] * np.cos(norm[:, 2] * np.pi / 2.1)
+            pos[:, 3:] = (norm[:, 3:] - 0.5) * quant
 
             filename = "cam_pos.csv"
             np.savetxt(filename, pos, delimiter=",")
 
+        self.cam_pos = pos
         return pos
 
     def _set_cam_pos(self, cam_index, t, printPos=None):
         # If no
         if self.cam_pos is None:
-            self.cam_pos = self._get_cam_pos(1, 0.5, 0.1, 0.1, 0.1)
+            self.cam_pos = self._get_cam_pos(1, 0.8, 0.01)
 
-        # set position
+        # set position of the reference camera
         self.model.cam_pos[cam_index] = self.cam_pos[t, 0:3]
-        # set orientation
-        # self.model.cam_mode[cam_index] = 0
-        # self.model.cam_quat[cam_index] = self.cam_pos[t, 3:7]
-        # self.model.cam_mode[cam_index] = 3
-        self.viewer.cam.azimuth += 20
-        self.viewer.cam.elevation += 25
-        # print("1: " + str(self.model.cam_quat[0, 1:4]) + ", 2: " + str(self.model.cam_quat[1, 1:4]))
 
         if printPos:
-            print("The object positions is: ", self.cam_pos[t, :])
+            print("The cam pos is: ", self.cam_pos[t, :])
+
+    # Call after sim.step if want to change the camera orientation while keep
+    # pointing to an object
+    def _set_cam_orientation(self, cam_index, t, printPos=None):
+        self.sim.data.cam_xmat[cam_index] = self.sim.data.cam_xmat[cam_index] + 0.1
+
+        if printPos:
+            print("The cam pos is: ", self.cam_pos[t, :])
 
     def _randomise_light_pos(self):
         x = uniform(-5, 5)
@@ -151,15 +157,15 @@ class Simulator():
 if __name__ == '__main__':
     os.chdir("datasets")
     sim = Simulator("../xmls/box.xml", "random_mj", cam_norm_pos_file="cam_norm_pos.csv", rand=True)
-    cameras = [0]
 
     # preview model
-    sim.on_screen_render(0)
+    # sim.on_screen_render(0)
 
     t0 = time.time()
 
     # create dataset
-    # sim.create_dataset(10, 1, 0.3, 0, 0, 0, cameras)
+    cameras = [0]
+    sim.create_dataset(100000, 1.0, 0.5, 0.01, cameras)
 
     t1 = time.time()
 
