@@ -10,7 +10,7 @@ import time
 from pathlib import Path
 
 
-class Simulator():
+class Simulator:
 
     def __init__(self, model_path, dataset_name, rand=False, cam_pos_file=None, cam_norm_pos_file=None):
         self.dataset_name = dataset_name
@@ -37,14 +37,14 @@ class Simulator():
             if t > 100 and os.getenv('TESTING') is not None:
                 break
 
-    def create_dataset(self, steps, r_max, r_min, quant, cameras):
+    def create_dataset(self, ndata, r_max, r_min, quant, cameras, start=0):
         self.sim.reset()
         self._make_dir()
 
-        t = 0
+        t = start
 
         # initialise the camera position array
-        self.cam_pos = self._get_cam_pos(r_max, r_min, quant, steps)
+        self.cam_pos = self._get_cam_pos(r_max, r_min, quant, ndata)
 
         # generate dataset
         while True:
@@ -74,10 +74,10 @@ class Simulator():
             t += 1
             # Print progress
             if t % 100 == 0:
-                print("Progress: {} / {}".format(t, steps))
+                print("Progress: {} / {}".format(t, ndata))
 
-            if t == steps or os.getenv('TESTING') is not None:
-                print("Finish creating {} {} dataset".format(steps, self.dataset_name))
+            if t == ndata or os.getenv('TESTING') is not None:
+                print("Finish creating {} {} images".format(ndata, self.dataset_name))
                 break
 
     def _get_cam_pos(self, r_max, r_min, quant, n=100000):
@@ -156,7 +156,7 @@ class Simulator():
 
 if __name__ == '__main__':
     os.chdir("datasets")
-    sim = Simulator("../xmls/box.xml", "random_mj", cam_norm_pos_file="cam_norm_pos.csv", rand=True)
+    sim = Simulator("../xmls/box.xml", "random_mj", cam_pos_file="cam_pos.csv", rand=True)
 
     # preview model
     # sim.on_screen_render(0)
@@ -165,7 +165,7 @@ if __name__ == '__main__':
 
     # create dataset
     cameras = [0]
-    sim.create_dataset(100000, 1.0, 0.5, 0.01, cameras)
+    sim.create_dataset(10000, 1.0, 0.5, 0.01, cameras, start=8426)
 
     t1 = time.time()
 
