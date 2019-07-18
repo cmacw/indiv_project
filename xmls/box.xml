@@ -40,8 +40,8 @@
     <worldbody>
         <geom name="ground" type="plane" size="100 100 0.1" pos="0 0 0" quat="1 0 0 0" material="matplane" condim="1"/>
 
-        <body name="box" pos="0 0 0.05">
-            <geom name="boxgeom" size="0.05 0.05 0.05" type="box" material="matbox"/>
+        <body name="box" pos="0 0 0.025">
+            <geom name="boxgeom" size="0.025 0.025 0.025" type="box" material="matbox"/>
             <!--<joint axis="1 0 0" name="box:x" type="slide"/>-->
             <!--<joint axis="0 1 0" name="box:y" type="slide"/>-->
             <!--<joint axis="0 0 1" name="box:z" type="slide"/>-->

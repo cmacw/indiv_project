@@ -35,9 +35,8 @@ class Simulator:
                 for name in self.sim.model.geom_names:
                     self.tex_modder.rand_all(name)
 
-            # Get camera name and set its position using the cam_id
-            cam_id = self.cam_modder.get_camid(cam_name)
-            self._set_cam_pos(cam_id, t, True)
+            # Set camera position and orientation
+            self._set_cam_pos(cam_name, t)
             self.sim.step()
             self._set_cam_orientation(cam_name, t)
 
@@ -60,7 +59,7 @@ class Simulator:
 
             # Randomised the position of the object
             # Set camera position
-            self._set_cam_pos(0, t)
+            self._set_cam_pos(cameras[0], t)
 
             # Randomised light source position
             self._randomise_light_pos()
@@ -75,7 +74,7 @@ class Simulator:
 
             # Save images for all camera
             for cam in cameras:
-                self._set_cam_orientation(cam, t)
+                self._set_cam_orientation(cam, t, True)
                 cam_id = self.cam_modder.get_camid(cam)
                 self.viewer.render(self.IMG_SIZE, self.IMG_SIZE, cam_id)
                 rgb = self.viewer.read_pixels(self.IMG_SIZE, self.IMG_SIZE)[0][::-1, :, :]
@@ -118,12 +117,13 @@ class Simulator:
         self.cam_pos = pos
         return pos
 
-    def _set_cam_pos(self, cam_id, t, printPos=None):
+    def _set_cam_pos(self, cam_name, t, printPos=None):
         # If no
         if self.cam_pos is None:
             self.cam_pos = self._get_cam_pos(1, 0.8, 0.01)
 
         # set position of the reference camera
+        cam_id = self.cam_modder.get_camid(cam_name)
         self.model.cam_pos[cam_id] = self.cam_pos[t, 0:3]
 
         if printPos:
@@ -131,15 +131,21 @@ class Simulator:
 
     # Call after sim.step if want to change the camera orientation while keep
     # pointing to an object
-    # def _set_cam_orientation(self, cam_index, t, printPos=None):
-    #     self.sim.data.cam_xmat[cam_index] = self.sim.data.cam_xmat[cam_index] + 0.1
-    #
-    #     if printPos:
-    #         print("The cam pos is: ", self.cam_pos[t, :])
+    def _set_cam_orientation(self, cam_name, t, printPos=None):
+        cam_id = self.cam_modder.get_camid(cam_name)
+        self.sim.data.cam_xmat[cam_id] = self.sim.data.cam_xmat[cam_id] + self.cam_pos[t, 3:]
 
-    def _set_cam_orientation(self, cam, t):
-        quat = self.cam_modder.get_quat(cam)
-        self.cam_modder.set_quat(cam, quat + self.cam_pos_file[t, 3:7])
+        if printPos:
+            print("The cam orientation is: ", self.cam_pos[t, :])
+
+    # Another trial function to change camera orientation. NOT WORKING
+    # def _set_cam_orientation(self, cam, t, printPos=None):
+    #     quat = self.cam_modder.get_quat(cam)
+    #     self.cam_modder.set_quat(cam, quat + self.cam_pos[t, 3:7])
+    #
+    #     # Out put cam orientation if needed
+    #     if printPos:
+    #         print("The cam orientation is: ", self.cam_pos[t, :])
 
     def _randomise_light_pos(self):
         x = uniform(-5, 5)
@@ -149,10 +155,6 @@ class Simulator:
         # body_pos is hard coded for now
         self.model.light_pos[0, 0] = uniform(-10, 10)
         self.model.light_pos[0, 1] = uniform(-10, 5)
-
-    def _save_pos_2_np(self, index, x, y):
-        self.all_pos[index, 0] = x
-        self.all_pos[index, 1] = y
 
     def _make_dir(self):
         try:
@@ -170,16 +172,16 @@ class Simulator:
 
 if __name__ == '__main__':
     os.chdir("datasets")
-    sim = Simulator("../xmls/box.xml", "text_checker", cam_pos_file="cam_pos.csv", rand=True)
-    cameras = ["targetcam"]
+    sim = Simulator("../xmls/box.xml", "text_checker", cam_norm_pos_file="cam_norm_pos.csv", rand=True)
 
     # preview model
-    sim.on_screen_render(cameras)
+    # sim.on_screen_render("targetcam")
 
     t0 = time.time()
 
     # create dataset
-    sim.create_dataset(10, 1.0, 0.5, 0.01, cameras)
+    cameras = ["targetcam"]
+    sim.create_dataset(15, 0.5, 0.2, 0.05, cameras)
 
     t1 = time.time()
 
