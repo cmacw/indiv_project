@@ -45,14 +45,14 @@ class Simulator:
             if t > 100 and os.getenv('TESTING') is not None:
                 break
 
-    def create_dataset(self, ndata, r_max, r_min, quat, cameras, start=0):
+    def create_dataset(self, ndata, radius_range, deg_range, quat, cameras, start=0):
         self.sim.reset()
         self._make_dir()
 
         t = start
 
         # initialise the camera position array
-        self.cam_pos = self._get_cam_pos(r_max, r_min, quat, ndata)
+        self.cam_pos = self._get_cam_pos(radius_range, deg_range, quat, ndata)
 
         # generate dataset
         while True:
@@ -74,7 +74,7 @@ class Simulator:
 
             # Save images for all camera
             for cam in cameras:
-                self._set_cam_orientation(cam, t, True)
+                self._set_cam_orientation(cam, t)
                 cam_id = self.cam_modder.get_camid(cam)
                 self.viewer.render(self.IMG_SIZE, self.IMG_SIZE, cam_id)
                 rgb = self.viewer.read_pixels(self.IMG_SIZE, self.IMG_SIZE)[0][::-1, :, :]
@@ -89,10 +89,13 @@ class Simulator:
                 print("Finish creating {} {} images".format(ndata, self.dataset_name))
                 break
 
-    def _get_cam_pos(self, r_max, r_min, quat, n=100000):
+    def _get_cam_pos(self, radius_range, deg_range, quat, n=100000):
         # First, either find or create the normalised array
         # Second, scale the normalised array
         # RETURN: n-by-12 np array, 3 for position, 9 for camera orientation in cam_xmat
+        r_min, r_max = radius_range
+        rad_min, rad_max = np.asarray(deg_range) * np.pi / 180
+        # rad_min, rad_max = rad_range
 
         if self.cam_pos_file:
             pos = np.loadtxt(self.cam_pos_file, delimiter=",")[:n, :]
@@ -104,11 +107,19 @@ class Simulator:
                 filename = "cam_norm_pos.csv"
                 np.savetxt(filename, norm, delimiter=",")
 
+            # Scale each parameter
+            # 0: radius, 1: angle in horizontal plane,
+            # 2: angle in vertical plane measure from vertical axis
+            # e.g. 90 degree points to horizontal plane
             norm[:, 0] = norm[:, 0] * (r_max - r_min) + r_min
+            norm[:, 1] = norm[:, 1] * 2 * np.pi
+            norm[:, 2] = norm[:, 2] * (rad_max - rad_min) + rad_min
+
+            # Translate to xyz and orientation
             pos = np.zeros([n, 12])
-            pos[:, 0] = norm[:, 0] * np.cos(norm[:, 1] * 2 * np.pi) * np.sin(norm[:, 2] * np.pi / 2)
-            pos[:, 1] = norm[:, 0] * np.sin(norm[:, 1] * 2 * np.pi) * np.sin(norm[:, 2] * np.pi / 2)
-            pos[:, 2] = norm[:, 0] * np.cos(norm[:, 2] * np.pi / 2.1)
+            pos[:, 0] = norm[:, 0] * np.cos(norm[:, 1]) * np.sin(norm[:, 2])
+            pos[:, 1] = norm[:, 0] * np.sin(norm[:, 1]) * np.sin(norm[:, 2])
+            pos[:, 2] = norm[:, 0] * np.cos(norm[:, 2])
             pos[:, 3:] = (norm[:, 3:] - 0.5) * quat
 
             filename = "cam_pos.csv"
@@ -120,7 +131,7 @@ class Simulator:
     def _set_cam_pos(self, cam_name, t, printPos=None):
         # If no
         if self.cam_pos is None:
-            self.cam_pos = self._get_cam_pos(1, 0.8, 0.01)
+            self.cam_pos = self._get_cam_pos([0.25, 0.7], [0, 80], 0.5)
 
         # set position of the reference camera
         cam_id = self.cam_modder.get_camid(cam_name)
@@ -181,7 +192,7 @@ if __name__ == '__main__':
 
     # create dataset
     cameras = ["targetcam"]
-    sim.create_dataset(15, 0.5, 0.2, 0.05, cameras)
+    sim.create_dataset(100, [0.25, 0.7], [0, 80], 0.5, cameras)
 
     t1 = time.time()
 

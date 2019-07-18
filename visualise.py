@@ -44,7 +44,7 @@ while True:
     # sim.model.mat_specular[1] = sample_values[t % 10]
     sim.model.mat_shininess[1] = sample_values[t % 10]
     # sim.model.mat_reflectance[1] = sample_values[t % 10]
-    print(sample_values[t % 10])
+    # print(sample_values[t % 10])
 
 
     t += 1
