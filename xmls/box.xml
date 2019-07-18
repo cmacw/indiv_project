@@ -9,15 +9,16 @@
             https://www.roboti.us/resourcelicense.txt
     -->
     <visual>
-        <global offwidth="1920" offheight="1080" fovy="80"/>
+        <global offwidth="512" offheight="512"/>
         <headlight ambient="0.5 0.5 0.5"/>
         <quality shadowsize="4096"/>
+        <map znear="0.01"/>
     </visual>
 
     <asset>
         <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="512"/>
         <texture name="texplane" type="2d" builtin="checker" rgb1=".2 .3 .4" rgb2=".1 0.15 0.2"
-                 width="512" height="512" mark="cross" markrgb=".8 .8 .8"/>
+                 width="1024" height="1024" mark="cross" markrgb=".8 .8 .8"/>
         <texture name="texbox" builtin="checker" rgb1="0.444 0.300 0.865" width="512" height="512"/>
         <texture name="texboxred" type="2d" builtin="flat" rgb1="0.9 0.2 0.2" width="512" height="512"/>
         <texture name="texwall" builtin="checker" rgb1="0.956 0.921 0.282" width="512" height="512"/>
@@ -50,7 +51,8 @@
 
         <light name="light1" pos="0 -5 10" mode="targetbody" target="box"/>
 
-        <camera name="camera1" pos="0 -10 10" mode="targetbody" target="box" fovy="120"/>
+        <camera name="targetcam" pos="0 -10 10" mode="targetbody" target="box"/>
+        <camera name="testcam" pos="0 0.01 0.3" mode="targetbody" target="box"/>
 
     </worldbody>
 </mujoco>

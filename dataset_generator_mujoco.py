@@ -1,6 +1,6 @@
 import mujoco_py
 from matplotlib import pyplot
-from mujoco_py.modder import TextureModder
+from mujoco_py.modder import TextureModder, CameraModder
 import math
 import os
 import scipy.misc
@@ -11,6 +11,7 @@ from pathlib import Path
 
 
 class Simulator:
+    IMG_SIZE = 512
 
     def __init__(self, model_path, dataset_name, rand=False, cam_pos_file=None, cam_norm_pos_file=None):
         self.dataset_name = dataset_name
@@ -20,31 +21,39 @@ class Simulator:
         self.cam_pos_file = cam_pos_file
         self.cam_norm_pos_file = cam_norm_pos_file
         self.cam_pos = None
-        self.modder = TextureModder(self.sim) if rand else None
+        self.tex_modder = TextureModder(self.sim) if rand else None
+        self.cam_modder = CameraModder(self.sim) if rand else None
 
-    def on_screen_render(self, cam_index):
+    def on_screen_render(self, cam_name):
         self.sim.reset()
         temp_viewer = mujoco_py.MjViewer(self.sim)
         t = 0
 
         while True:
-            self._set_cam_pos(cam_index, t, True)
+            # Randomised material/texture if required
+            if self.tex_modder is not None:
+                for name in self.sim.model.geom_names:
+                    self.tex_modder.rand_all(name)
+
+            # Get camera name and set its position using the cam_id
+            cam_id = self.cam_modder.get_camid(cam_name)
+            self._set_cam_pos(cam_id, t, True)
             self.sim.step()
-            self._set_cam_orientation(cam_index, t)
+            self._set_cam_orientation(cam_name, t)
 
             temp_viewer.render()
             t += 1
             if t > 100 and os.getenv('TESTING') is not None:
                 break
 
-    def create_dataset(self, ndata, r_max, r_min, quant, cameras, start=0):
+    def create_dataset(self, ndata, r_max, r_min, quat, cameras, start=0):
         self.sim.reset()
         self._make_dir()
 
         t = start
 
         # initialise the camera position array
-        self.cam_pos = self._get_cam_pos(r_max, r_min, quant, ndata)
+        self.cam_pos = self._get_cam_pos(r_max, r_min, quat, ndata)
 
         # generate dataset
         while True:
@@ -57,9 +66,9 @@ class Simulator:
             self._randomise_light_pos()
 
             # Randomised material/texture if required
-            if self.modder is not None:
+            if self.tex_modder is not None:
                 for name in self.sim.model.geom_names:
-                    self.modder.rand_all(name)
+                    self.tex_modder.rand_all(name)
 
             # Simulate and render in offscreen renderer
             self.sim.step()
@@ -67,9 +76,10 @@ class Simulator:
             # Save images for all camera
             for cam in cameras:
                 self._set_cam_orientation(cam, t)
-                self.viewer.render(1920, 1080, cam)
-                rgb = self.viewer.read_pixels(1920, 1080)[0][::-1, :, :]
-                self._save_fig_to_dir(rgb, t, cam)
+                cam_id = self.cam_modder.get_camid(cam)
+                self.viewer.render(self.IMG_SIZE, self.IMG_SIZE, cam_id)
+                rgb = self.viewer.read_pixels(self.IMG_SIZE, self.IMG_SIZE)[0][::-1, :, :]
+                self._save_fig_to_dir(rgb, t, cam_id)
 
             t += 1
             # Print progress
@@ -80,7 +90,7 @@ class Simulator:
                 print("Finish creating {} {} images".format(ndata, self.dataset_name))
                 break
 
-    def _get_cam_pos(self, r_max, r_min, quant, n=100000):
+    def _get_cam_pos(self, r_max, r_min, quat, n=100000):
         # First, either find or create the normalised array
         # Second, scale the normalised array
         # RETURN: n-by-12 np array, 3 for position, 9 for camera orientation in cam_xmat
@@ -100,7 +110,7 @@ class Simulator:
             pos[:, 0] = norm[:, 0] * np.cos(norm[:, 1] * 2 * np.pi) * np.sin(norm[:, 2] * np.pi / 2)
             pos[:, 1] = norm[:, 0] * np.sin(norm[:, 1] * 2 * np.pi) * np.sin(norm[:, 2] * np.pi / 2)
             pos[:, 2] = norm[:, 0] * np.cos(norm[:, 2] * np.pi / 2.1)
-            pos[:, 3:] = (norm[:, 3:] - 0.5) * quant
+            pos[:, 3:] = (norm[:, 3:] - 0.5) * quat
 
             filename = "cam_pos.csv"
             np.savetxt(filename, pos, delimiter=",")
@@ -108,24 +118,28 @@ class Simulator:
         self.cam_pos = pos
         return pos
 
-    def _set_cam_pos(self, cam_index, t, printPos=None):
+    def _set_cam_pos(self, cam_id, t, printPos=None):
         # If no
         if self.cam_pos is None:
             self.cam_pos = self._get_cam_pos(1, 0.8, 0.01)
 
         # set position of the reference camera
-        self.model.cam_pos[cam_index] = self.cam_pos[t, 0:3]
+        self.model.cam_pos[cam_id] = self.cam_pos[t, 0:3]
 
         if printPos:
             print("The cam pos is: ", self.cam_pos[t, :])
 
     # Call after sim.step if want to change the camera orientation while keep
     # pointing to an object
-    def _set_cam_orientation(self, cam_index, t, printPos=None):
-        self.sim.data.cam_xmat[cam_index] = self.sim.data.cam_xmat[cam_index] + 0.1
+    # def _set_cam_orientation(self, cam_index, t, printPos=None):
+    #     self.sim.data.cam_xmat[cam_index] = self.sim.data.cam_xmat[cam_index] + 0.1
+    #
+    #     if printPos:
+    #         print("The cam pos is: ", self.cam_pos[t, :])
 
-        if printPos:
-            print("The cam pos is: ", self.cam_pos[t, :])
+    def _set_cam_orientation(self, cam, t):
+        quat = self.cam_modder.get_quat(cam)
+        self.cam_modder.set_quat(cam, quat + self.cam_pos_file[t, 3:7])
 
     def _randomise_light_pos(self):
         x = uniform(-5, 5)
@@ -156,16 +170,16 @@ class Simulator:
 
 if __name__ == '__main__':
     os.chdir("datasets")
-    sim = Simulator("../xmls/box.xml", "random_mj", cam_pos_file="cam_pos.csv", rand=True)
+    sim = Simulator("../xmls/box.xml", "text_checker", cam_pos_file="cam_pos.csv", rand=True)
+    cameras = ["targetcam"]
 
     # preview model
-    # sim.on_screen_render(0)
+    sim.on_screen_render(cameras)
 
     t0 = time.time()
 
     # create dataset
-    cameras = [0]
-    sim.create_dataset(10000, 1.0, 0.5, 0.01, cameras, start=8426)
+    sim.create_dataset(10, 1.0, 0.5, 0.01, cameras)
 
     t1 = time.time()
 
