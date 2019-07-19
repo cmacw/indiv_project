@@ -149,15 +149,6 @@ class Simulator:
         if printPos:
             print("The cam orientation is: ", self.cam_pos[t, :])
 
-    # Another trial function to change camera orientation. NOT WORKING
-    # def _set_cam_orientation(self, cam, t, printPos=None):
-    #     quat = self.cam_modder.get_quat(cam)
-    #     self.cam_modder.set_quat(cam, quat + self.cam_pos[t, 3:7])
-    #
-    #     # Out put cam orientation if needed
-    #     if printPos:
-    #         print("The cam orientation is: ", self.cam_pos[t, :])
-
     def _randomise_light_pos(self):
         x = uniform(-5, 5)
         y = uniform(-5, 5)

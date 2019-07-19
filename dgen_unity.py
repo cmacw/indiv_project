@@ -5,7 +5,7 @@ from random import uniform
 import numpy as np
 from matplotlib import pyplot
 import pickle
-import dataset_generator_mujoco
+import dgen_mujoco
 import scipy
 
 
