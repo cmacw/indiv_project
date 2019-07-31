@@ -2,6 +2,7 @@ import mujoco_py
 from mujoco_py.modder import TextureModder, CameraModder
 import os
 import time
+from random import uniform
 
 from DataSetGenerator import DataSetGenerator
 
@@ -23,10 +24,8 @@ class MjDataSetGenerator(DataSetGenerator):
         t = 0
 
         while True:
-            # Randomised material/texture if required
-            if self.tex_modder is not None:
-                for name in self.sim.model.geom_names:
-                    self.tex_modder.rand_all(name)
+            # Randomised material/texture if any is assigned to geom
+            self._rand_mat()
 
             # Set camera position and orientation
             self._set_cam_pos(cam_name, t)
@@ -38,7 +37,7 @@ class MjDataSetGenerator(DataSetGenerator):
             if t > 100 and os.getenv('TESTING') is not None:
                 break
 
-    def create_dataset(self, ndata, radius_range, deg_range, quat, cameras, start=0):
+    def create_data_set(self, ndata, radius_range, deg_range, quat, cameras, start=0):
         self.sim.reset()
         self._make_dir()
 
@@ -57,10 +56,8 @@ class MjDataSetGenerator(DataSetGenerator):
             # Randomised light source position
             self._randomise_light_pos()
 
-            # Randomised material/texture if required
-            if self.tex_modder is not None:
-                for name in self.sim.model.geom_names:
-                    self.tex_modder.rand_all(name)
+            # Randomised material/texture if any is assigned to geom
+            self._rand_mat()
 
             # Simulate and render in offscreen renderer
             self.sim.step()
@@ -73,19 +70,64 @@ class MjDataSetGenerator(DataSetGenerator):
                 rgb = self.viewer.read_pixels(self.IMG_SIZE, self.IMG_SIZE)[0][::-1, :, :]
                 self._save_fig_to_dir(rgb, t, cam_id)
 
+            # Time advance one
             t += 1
-            # Print progress
-            if t % 100 == 0:
-                print("Progress: {} / {}".format(t, ndata))
+
+            # Print progress to terminal
+            self.print_progress(ndata, t)
 
             if t == ndata or os.getenv('TESTING') is not None:
                 print("Finish creating {} {} images".format(ndata, self.data_set_name))
                 break
 
+        self._save_cam_pos(self.cam_pos)
+
+    def _rand_mat(self):
+        if self.tex_modder is not None:
+            for name in self.sim.model.geom_names:
+                geom_id = self.model.geom_name2id(name)
+                mat_id = self.model.geom_matid[geom_id]
+                if mat_id >= 0:
+                    self.tex_modder.rand_all(name)
+
+    def _set_cam_pos(self, cam_name, t, printPos=None):
+        # If no
+        if self.cam_pos is None:
+            self.cam_pos = self._get_cam_pos([0.25, 0.7], [0, 80], 0.5)
+
+        # set position of the reference camera
+        cam_id = self.cam_modder.get_camid(cam_name)
+        self.model.cam_pos[cam_id] = self.cam_pos[t, 0:3]
+
+        if printPos:
+            print("The cam pos is: ", self.cam_pos[t, :])
+
+    # Call after sim.step if want to change the camera orientation while keep
+
+    def _set_cam_orientation(self, cam_name, t, printPos=None):
+        cam_id = self.cam_modder.get_camid(cam_name)
+        if self.cam_pos_file is None:
+            self.sim.data.cam_xmat[cam_id] = self.sim.data.cam_xmat[cam_id] + self.cam_pos[t, 3:]
+            self.cam_pos[t, 3:] = self.sim.data.cam_xmat[cam_id]
+        else:
+            self.sim.data.cam_xmat[cam_id] = self.cam_pos[t, 3:]
+
+        if printPos:
+            print("The cam orientation is: ", self.cam_pos[t, :])
+
+    def _randomise_light_pos(self):
+        x = uniform(-5, 5)
+        y = uniform(-5, 5)
+
+        # set position
+        # body_pos is hard coded for now
+        self.model.light_pos[0, 0] = uniform(-10, 10)
+        self.model.light_pos[0, 1] = uniform(-10, 5)
+
 
 if __name__ == '__main__':
     os.chdir("datasets")
-    sim = MjDataSetGenerator("../xmls/box.xml", "trial", cam_pos_file="cam_pos.csv", rand=True)
+    sim = MjDataSetGenerator("../xmls/box.xml", "random_mj", cam_pos_file="cam_pos.csv", rand=True)
 
     # preview model
     # sim.on_screen_render("targetcam")
@@ -94,7 +136,8 @@ if __name__ == '__main__':
 
     # create dataset
     cameras = ["targetcam"]
-    sim.create_dataset(50, [0.25, 0.7], [0, 80], 0.5, cameras)
+    # TODO: change the argument so if cam_pos_file is present, no other arguments are needed
+    sim.create_data_set(100, [0.25, 0.7], [0, 80], 0.5, cameras)
 
     t1 = time.time()
 

@@ -8,48 +8,57 @@ import pickle
 import dgen_mujoco
 import scipy
 
+from DataSetGenerator import DataSetGenerator
 
-class Simulator:
-    def __init__(self, address, port, dataset_name):
+
+class UnDataSetGenerator(DataSetGenerator):
+    def __init__(self, address, port, dataset_name, cam_pos_file=None, cam_norm_pos_file=None):
+        super().__init__(dataset_name, cam_pos_file=cam_pos_file, cam_norm_pos_file=cam_norm_pos_file)
         self.m_remote = mjremote()
-        self.dataset_name = dataset_name
-        # Connect to the unity executable
+        self.address = address
+        self.port = port
 
-    def create_dataset(self):
+    def create_data_set(self, ndata, radius_range, deg_range, quat, cameras, start=0):
         self._make_dir()
+
+        # initialise the camera position array
+        self.cam_pos = self._get_cam_pos(radius_range, deg_range, quat, ndata)
 
         # Connect to the unity executable
         print('Connect: ', self.m_remote.connect(address=address, port=port))
 
+        t = start
+
         # Buffer for the image array
         b = bytearray(3 * self.m_remote.width * self.m_remote.height)
-        for i in range(0, 10):
-            # Set random position for the joints
-            # rand_pos = [uniform(-5, 5), uniform(-5, 5)]
-            # m_remote.setqpos(np.array(rand_pos))
 
-            # Set the camera
-            self.m_remote.setcamera(1)
+        # Set the camera
+        self.m_remote.setcamera(0)
+        while True:
+            self.m_remote.setcamposrot(self.cam_pos[t, :], b)
 
             # Save the screen shot to the buffer b
             self.m_remote.getimage(b)
 
             # Save the image
-            buf = np.reshape(b, (self.m_remote.height, self.m_remote.width, 3))[::-1, :, :]
-            scipy.misc.imsave(self.dataset_name + "/trial" + str(i) + ".png", buf)
+            rgb = np.reshape(b, (self.m_remote.height, self.m_remote.width, 3))[::-1, :, :]
+            # TODO: find out cam id function in Unity
+            cam_id = 0
+            self._save_fig_to_dir(rgb, t, cam_id)
             # pyplot.imshow(rgb)
             # pyplot.show()
 
+            # Time advance one
+            t += 1
+
+            # Print progress to terminal
+            self.print_progress(ndata, t)
+
+            if t == ndata or os.getenv('TESTING') is not None:
+                print("Finish creating {} {} images".format(ndata, self.data_set_name))
+                break
+
         self.m_remote.close()
-
-    def _make_dir(self):
-        try:
-            os.mkdir(self.dataset_name)
-            print("Directory " + self.dataset_name + " created")
-        except FileExistsError:
-            print("Directory " + self.dataset_name + " already created")
-
-        print("Using " + self.dataset_name + " to store the dataset")
 
 
 if __name__ == '__main__':
@@ -63,11 +72,11 @@ if __name__ == '__main__':
     t0 = time.time()
 
     # Create the dataset
-    sim = Simulator(address, port, "random_ut")
-    sim.create_dataset()
+    cameras = ["camera1"]
+    sim = UnDataSetGenerator(address, port, "random_un", cam_pos_file="cam_pos.csv")
+    sim.create_data_set(10000, [0.25, 0.7], [0, 80], 0.5, cameras)
 
     # Stop timer
     t1 = time.time()
 
     print('Time taken: ', (t1 - t0))
-
