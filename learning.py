@@ -10,6 +10,7 @@ import torchvision.transforms as transforms
 import torch.optim as optim
 from PIL import Image
 from skimage import io
+from scipy.spatial.transform import Rotation
 from torch.utils.data import Dataset, DataLoader
 
 
@@ -20,7 +21,7 @@ class PosEstimationDataset(Dataset):
         self.image_file_name = image_file_name
         self.size = size
         self.cam_id = cam_id
-        self.all_pos = self.read_csv(pos_file_name, size)
+        self.all_pos_euler = self._prepare_pos(pos_file_name, size)
         self.transform = transform
 
     def __len__(self):
@@ -30,9 +31,7 @@ class PosEstimationDataset(Dataset):
     def __getitem__(self, idx):
         img_name = os.path.join(self.dataset_name, self.image_file_name.format(idx, self.cam_id))
         img = io.imread(img_name)
-        # image = self.img2tensor(image)
-        pos = self.all_pos[idx, :]
-        pos = torch.from_numpy(pos).float()
+        pos = self.all_pos_euler[idx, :]
 
         if self.transform:
             img = self.transform(img)
@@ -41,25 +40,23 @@ class PosEstimationDataset(Dataset):
         return sample
 
     # read position from csv
-    def read_csv(self, dir_name, n):
-        return np.loadtxt(dir_name, delimiter=",")[:n, :]
+    def _read_csv(self, dir_name, size):
+        return np.loadtxt(dir_name, delimiter=",")[:size, :]
 
-    # To transform from rotation matrix to euler angles
-    def _rot_mat2euler(self, mat):
-        sy = math.sqrt(mat[0] * mat[0] + mat[3] * mat[3])
+    # Change rotation matrix [:, 3:12] to euler angles and
+    # Return pos and euler angles together as Tensor
+    def _prepare_pos(self, pos_file_name, size):
+        full_state = self._read_csv(pos_file_name, size)
+        rot_mat = np.reshape(full_state[:, 3:], (-1, 3, 3))
 
-        singular = sy < 1e-6
+        # Transform the rotation to euler
+        rot_euler = Rotation.from_dcm(rot_mat).as_euler('zyx', degrees=True)
 
-        if not singular:
-            x = math.atan2(mat[7], mat[8])
-            y = math.atan2(-mat[6], sy)
-            z = math.atan2(mat[3], mat[0])
-        else:
-            x = math.atan2(-mat[5], mat[4])
-            y = math.atan2(-mat[6], sy)
-            z = 0
+        # Combine position and euler
+        full_state[:, 3:6] = rot_euler / 180
+        pos_euler = torch.from_numpy(full_state[:, :6])
 
-        return np.array([x, y, z])
+        return pos_euler.float()
 
 
 def show_batch_image(trainloader):
@@ -85,24 +82,35 @@ class Net(nn.Module):
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16 * 125 * 125, 120)
+        self.fc1 = nn.Linear(16 * 29 * 29, 120)
         self.fc2 = nn.Linear(120, 84)
-        self.fc3 = nn.Linear(84, 12)
+        self.fc3 = nn.Linear(84, 6)
 
     def forward(self, x):
         x = self.pool(nn.functional.relu(self.conv1(x)))
         x = self.pool(nn.functional.relu(self.conv2(x)))
+        # print(x.size())
         x = x.view(x.size(0), -1)
         x = nn.functional.relu(self.fc1(x))
         x = nn.functional.relu(self.fc2(x))
         x = self.fc3(x)
         return x
 
+
+def plot_array(data):
+    plt.figure()
+    plt.plot(data)
+    plt.ylabel("MSE losses")
+    plt.show()
+
+
 if __name__ == '__main__':
     os.chdir("datasets")
-    dataset_name = "random_un"
+    dataset_name = "random_mj"
     cam_id = 0
     ndata = 10000
+    epochs = 1
+    batch_size = 4
 
     # Tensor using CPU
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -113,15 +121,19 @@ if __name__ == '__main__':
         [transforms.ToTensor()])
     trainset = PosEstimationDataset(dataset_name, "cam_pos.csv",
                                     "image_t_{}_cam_{}.png", ndata, cam_id, transform=trsfm)
-    trainloader = DataLoader(trainset, batch_size=4, shuffle=True)
+    trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
 
     # Network setup
     net = Net()
     net.to(device)
     criterion = nn.MSELoss()
-    optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    # optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+    optimizer = optim.Adam(net.parameters(), lr=0.001)
 
-    for epoch in range(2):  # loop over the dataset multiple times
+    # Initialise loss array
+    losses = np.empty(int(epochs * ndata / batch_size / 100))
+
+    for epoch in range(epochs):  # loop over the dataset multiple times
 
         running_loss = 0.0
         for i, data in enumerate(trainloader):
@@ -139,9 +151,14 @@ if __name__ == '__main__':
 
             # print statistics
             running_loss += loss.item()
-            if i % 100 == 99:  # print every 2000 mini-batches
+            if i % 100 == 99:  # print every 100 mini-batches
+                # save loss
+                losses[epoch * ndata + i // 100] = loss
+
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i + 1, running_loss / 100))
                 running_loss = 0.0
 
     print('Finished Training')
+
+    plot_array(losses)

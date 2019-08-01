@@ -3,7 +3,7 @@ from abc import abstractmethod
 
 
 import numpy as np
-import scipy.misc
+import imageio
 
 
 class DataSetGenerator:
@@ -70,7 +70,7 @@ class DataSetGenerator:
 
     def _save_fig_to_dir(self, rgb, index, cam_index):
         filename = "image_t_{}_cam_{}.png".format(index, cam_index)
-        scipy.misc.imsave(self.data_set_name + '/' + filename, rgb)
+        imageio.imwrite(self.data_set_name + '/' + filename, rgb)
 
     def print_progress(self, ndata, t):
         # Print progress

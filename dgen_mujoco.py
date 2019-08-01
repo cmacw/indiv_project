@@ -1,22 +1,24 @@
-import mujoco_py
-from mujoco_py.modder import TextureModder, CameraModder
 import os
 import time
 from random import uniform
+
+import mujoco_py
+from mujoco_py.modder import TextureModder, CameraModder
 
 from DataSetGenerator import DataSetGenerator
 
 
 class MjDataSetGenerator(DataSetGenerator):
-    IMG_SIZE = 512
+    IMG_SIZE = 128
 
-    def __init__(self, model_path, dataset_name, rand=False, cam_pos_file=None, cam_norm_pos_file=None):
+    def __init__(self, model_path, dataset_name, use_procedural=False, cam_pos_file=None, cam_norm_pos_file=None):
         super().__init__(dataset_name, cam_pos_file=cam_pos_file, cam_norm_pos_file=cam_norm_pos_file)
         self.model = mujoco_py.load_model_from_path(model_path)
         self.sim = mujoco_py.MjSim(self.model)
         self.viewer = mujoco_py.MjRenderContextOffscreen(self.sim, None)
-        self.tex_modder = TextureModder(self.sim) if rand else None
-        self.cam_modder = CameraModder(self.sim) if rand else None
+        self.cam_modder = CameraModder(self.sim)
+        self.tex_modder = TextureModder(self.sim)
+        self.use_procedural = use_procedural
 
     def on_screen_render(self, cam_name):
         self.sim.reset()
@@ -37,7 +39,8 @@ class MjDataSetGenerator(DataSetGenerator):
             if t > 100 and os.getenv('TESTING') is not None:
                 break
 
-    def create_data_set(self, ndata, radius_range, deg_range, quat, cameras, start=0):
+    def create_data_set(self, ndata, radius_range, deg_range, quat,
+                        cameras, target_geom, png_tex_ids, start=0):
         self.sim.reset()
         self._make_dir()
 
@@ -57,7 +60,7 @@ class MjDataSetGenerator(DataSetGenerator):
             self._randomise_light_pos()
 
             # Randomised material/texture if any is assigned to geom
-            self._rand_mat()
+            self._rand_mat(target_geom, png_tex_ids)
 
             # Simulate and render in offscreen renderer
             self.sim.step()
@@ -82,13 +85,37 @@ class MjDataSetGenerator(DataSetGenerator):
 
         self._save_cam_pos(self.cam_pos)
 
-    def _rand_mat(self):
-        if self.tex_modder is not None:
-            for name in self.sim.model.geom_names:
-                geom_id = self.model.geom_name2id(name)
-                mat_id = self.model.geom_matid[geom_id]
-                if mat_id >= 0:
+    def _rand_mat(self, target_geom, png_tex):
+        for name in self.sim.model.geom_names:
+                # Random mat using mujoco py modder or png in xml
+                if self.use_procedural:
                     self.tex_modder.rand_all(name)
+                else:
+                    # change redness
+                    if name == target_geom["cube"]:
+                        self._change_redness(name)
+
+                    # change wood texture
+                    if name == target_geom["ground"]:
+                        self._change_tex_png(name, png_tex)
+
+    def _get_tex_id(self, mat_id):
+        tex_id = self.model.mat_texid[mat_id]
+        assert tex_id >= 0, "Material has no assigned texture"
+        return tex_id
+
+    def _change_redness(self, name):
+        r = self.tex_modder.random_state.randint(120, 256)
+        g = self.tex_modder.random_state.randint(0, 120)
+        b = self.tex_modder.random_state.randint(0, 120)
+        self.tex_modder.set_rgb(name, [r, g, b])
+
+    def _change_tex_png(self, name, png_tex):
+        geom_id = self.model.geom_name2id(name)
+        mat_id = self.model.geom_matid[geom_id]
+        self.model.mat_texid[mat_id] = \
+            self.tex_modder.random_state.randint(png_tex[0], png_tex[1] + 1)
+        self.tex_modder.upload_texture(name)
 
     def _set_cam_pos(self, cam_name, t, printPos=None):
         # If no
@@ -116,18 +143,16 @@ class MjDataSetGenerator(DataSetGenerator):
             print("The cam orientation is: ", self.cam_pos[t, :])
 
     def _randomise_light_pos(self):
-        x = uniform(-5, 5)
-        y = uniform(-5, 5)
-
         # set position
-        # body_pos is hard coded for now
+        # index of light is hard coded for now
+        # TODO: get light index by name
         self.model.light_pos[0, 0] = uniform(-10, 10)
         self.model.light_pos[0, 1] = uniform(-10, 5)
 
 
 if __name__ == '__main__':
     os.chdir("datasets")
-    sim = MjDataSetGenerator("../xmls/box.xml", "random_mj", cam_pos_file="cam_pos.csv", rand=True)
+    sim = MjDataSetGenerator("../xmls/box.xml", "realistic_mj", cam_pos_file="cam_pos.csv")
 
     # preview model
     # sim.on_screen_render("targetcam")
@@ -136,8 +161,12 @@ if __name__ == '__main__':
 
     # create dataset
     cameras = ["targetcam"]
+    target_geom = {"cube": "boxgeom", "ground": "ground"}
+    # png_tex = ["texwood1", "texwood2", "texwood12", "texwood18"]
+    png_tex_ids = (5, 8)
+
     # TODO: change the argument so if cam_pos_file is present, no other arguments are needed
-    sim.create_data_set(100, [0.25, 0.7], [0, 80], 0.5, cameras)
+    sim.create_data_set(10000, [0.25, 0.7], [0, 80], 0.5, cameras, target_geom, png_tex_ids)
 
     t1 = time.time()
 
