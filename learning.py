@@ -30,7 +30,7 @@ class PosEstimationDataset(Dataset):
     # Return dictionary of {image, pos}
     def __getitem__(self, idx):
         img_name = os.path.join(self.dataset_name, self.image_file_name.format(idx, self.cam_id))
-        img = io.imread(img_name)
+        img = plt.imread(img_name)
         pos = self.all_pos_euler[idx, :]
 
         if self.transform:
@@ -105,8 +105,8 @@ def plot_array(data):
 
 
 if __name__ == '__main__':
-    os.chdir("datasets")
-    dataset_name = "random_mj"
+    os.chdir("datasets/Set02/Train")
+    dataset_name = "realistic_un"
     cam_id = 0
     ndata = 10000
     epochs = 1
