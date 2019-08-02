@@ -40,14 +40,14 @@ class MjDataSetGenerator(DataSetGenerator):
                 break
 
     def create_data_set(self, ndata, radius_range, deg_range, quat,
-                        cameras, target_geom, png_tex_ids, start=0):
+                        cameras, target_geom, png_tex_ids=None, start=0):
         self.sim.reset()
         self._make_dir()
 
         t = start
 
         # initialise the camera position array
-        self.cam_pos = self._get_cam_pos(radius_range, deg_range, quat, ndata)
+        self.cam_pos = self._get_cam_pos(radius_range, deg_range, quat, ndata, start)
 
         # generate dataset
         while True:
@@ -130,11 +130,12 @@ class MjDataSetGenerator(DataSetGenerator):
             print("The cam pos is: ", self.cam_pos[t, :])
 
     # Call after sim.step if want to change the camera orientation while keep
-
     def _set_cam_orientation(self, cam_name, t, printPos=None):
         cam_id = self.cam_modder.get_camid(cam_name)
         if self.cam_pos_file is None:
+            # Add the offset to the rotational matrix
             self.sim.data.cam_xmat[cam_id] = self.sim.data.cam_xmat[cam_id] + self.cam_pos[t, 3:]
+            # Save the actual rotational matrix
             self.cam_pos[t, 3:] = self.sim.data.cam_xmat[cam_id]
         else:
             self.sim.data.cam_xmat[cam_id] = self.cam_pos[t, 3:]
@@ -152,7 +153,8 @@ class MjDataSetGenerator(DataSetGenerator):
 
 if __name__ == '__main__':
     os.chdir("datasets")
-    sim = MjDataSetGenerator("../xmls/box.xml", "realistic_mj", cam_pos_file="cam_pos.csv")
+    sim = MjDataSetGenerator("../xmls/box.xml", "random_mj_test",
+                             use_procedural=True, cam_pos_file="cam_pos_test.csv")
 
     # preview model
     # sim.on_screen_render("targetcam")
@@ -162,11 +164,10 @@ if __name__ == '__main__':
     # create dataset
     cameras = ["targetcam"]
     target_geom = {"cube": "boxgeom", "ground": "ground"}
-    # png_tex = ["texwood1", "texwood2", "texwood12", "texwood18"]
-    png_tex_ids = (5, 8)
+    png_tex_ids = (5, 15)
 
     # TODO: change the argument so if cam_pos_file is present, no other arguments are needed
-    sim.create_data_set(10000, [0.25, 0.7], [0, 80], 0.5, cameras, target_geom, png_tex_ids)
+    sim.create_data_set(5000, [0.25, 0.7], [0, 80], 0.5, cameras, target_geom, png_tex_ids)
 
     t1 = time.time()
 

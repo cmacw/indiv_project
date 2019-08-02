@@ -12,8 +12,8 @@ from DataSetGenerator import DataSetGenerator
 
 
 class UnDataSetGenerator(DataSetGenerator):
-    def __init__(self, address, port, dataset_name, cam_pos_file=None, cam_norm_pos_file=None):
-        super().__init__(dataset_name, cam_pos_file=cam_pos_file, cam_norm_pos_file=cam_norm_pos_file)
+    def __init__(self, address, port, dataset_name, cam_pos_file):
+        super().__init__(dataset_name, cam_pos_file=cam_pos_file)
         self.m_remote = mjremote()
         self.address = address
         self.port = port
@@ -73,8 +73,8 @@ if __name__ == '__main__':
 
     # Create the dataset
     cameras = ["camera1"]
-    sim = UnDataSetGenerator(address, port, "random_un", cam_pos_file="cam_pos.csv")
-    sim.create_data_set(10000, [0.25, 0.7], [0, 80], 0.5, cameras)
+    sim = UnDataSetGenerator(address, port, "realistic_un", "cam_pos.csv")
+    sim.create_data_set(15000, [0.25, 0.7], [0, 80], 0.5, cameras)
 
     # Stop timer
     t1 = time.time()

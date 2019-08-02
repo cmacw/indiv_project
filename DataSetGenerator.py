@@ -14,10 +14,10 @@ class DataSetGenerator:
         self.cam_pos_file = cam_pos_file
 
     @abstractmethod
-    def create_data_set(self, ndata, radius_range, deg_range, quat, cameras, start):
+    def create_data_set(self):
         pass
 
-    def _get_cam_pos(self, radius_range, deg_range, quat, n=100000):
+    def _get_cam_pos(self, radius_range, deg_range, quat, n=100000, start=0):
         # First, either find or create the normalised array
         # Second, scale the normalised array
         # RETURN: n-by-12 np array, 3 for position, 9 for camera orientation in cam_xmat
@@ -25,10 +25,13 @@ class DataSetGenerator:
         rad_min, rad_max = np.asarray(deg_range) * np.pi / 180
 
         if self.cam_pos_file:
-            pos = np.loadtxt(self.cam_pos_file, delimiter=",")[:n, :]
+            pos = np.loadtxt(self.cam_pos_file, delimiter=",")
+            assert start < len(pos) and start+n <= len(pos), \
+                "The start and/or end index of the cam pos exceed the ones in the position file."
+            pos = pos[start:start+n, :]
         else:
             if self.cam_norm_pos_file:
-                norm = np.loadtxt(self.cam_norm_pos_file, delimiter=",")[:n, :]
+                norm = np.loadtxt(self.cam_norm_pos_file, delimiter=",")[start:start+n, :]
             else:
                 norm = np.random.rand(n, 12)
                 filename = "cam_norm_pos.csv"
@@ -47,16 +50,15 @@ class DataSetGenerator:
             pos[:, 0] = norm[:, 0] * np.cos(norm[:, 1]) * np.sin(norm[:, 2])
             pos[:, 1] = norm[:, 0] * np.sin(norm[:, 1]) * np.sin(norm[:, 2])
             pos[:, 2] = norm[:, 0] * np.cos(norm[:, 2])
+            # offset that is added to the rotational matrix
             pos[:, 3:] = (norm[:, 3:] - 0.5) * quat
-
-            self._save_cam_pos(pos)
 
         self.cam_pos = pos
         return pos
 
     def _save_cam_pos(self, pos):
         if self.cam_pos_file is None:
-            filename = "cam_pos.csv"
+            filename = self.data_set_name + "_cam_pos.csv"
             np.savetxt(filename, pos, delimiter=",")
 
     def _make_dir(self):
