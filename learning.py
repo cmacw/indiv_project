@@ -9,7 +9,6 @@ import torchvision
 import torchvision.transforms as transforms
 import torch.optim as optim
 from PIL import Image
-from skimage import io
 from scipy.spatial.transform import Rotation
 from torch.utils.data import Dataset, DataLoader
 
