@@ -147,9 +147,9 @@ if __name__ == '__main__':
     optimizer = optim.Adam(net.parameters(), lr=0.001)
 
     # Initialise loss array
-    size_p_batch = int(trainset_info["ndata"] / trainset_info["batch_size"])
     loss_sample_size = 100
-    losses = np.empty(trainset_info["epochs"] * size_p_batch // loss_sample_size)
+    loss_p_epoch = int(trainset_info["ndata"] / trainset_info["batch_size"]) // loss_sample_size
+    losses = np.empty(trainset_info["epochs"] * loss_p_epoch)
 
     # Training
     for epoch in range(trainset_info["epochs"]):  # loop over the dataset multiple times
@@ -172,7 +172,7 @@ if __name__ == '__main__':
             running_loss += loss.item()
             if i % loss_sample_size == loss_sample_size - 1:  # print every 100 mini-batches
                 # save loss
-                losses[epoch * size_p_batch + i // loss_sample_size] = loss
+                losses[epoch * loss_p_epoch + i // loss_sample_size] = loss
 
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i + 1, running_loss / loss_sample_size))
