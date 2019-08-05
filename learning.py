@@ -1,5 +1,6 @@
 import math
 import os
+import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,6 +12,7 @@ import torch.optim as optim
 from PIL import Image
 from scipy.spatial.transform import Rotation
 from torch.utils.data import Dataset, DataLoader
+
 
 
 class PosEstimationDataset(Dataset):
@@ -115,7 +117,7 @@ def plot_array(data):
 
 
 def save_loss(trainset_info, loss):
-    loss_file_name = ("loss_{}_eph_{}_btcsz_{}.pt").format(trainset_info["dataset_name"],
+    loss_file_name = ("loss_{}_eph_{}_btcsz_{}.csv").format(trainset_info["dataset_name"],
                                                            trainset_info["epochs"],
                                                            trainset_info["batch_size"])
     loss_file_path = os.path.join(trainset_info["path"], loss_file_name)
@@ -127,10 +129,17 @@ if __name__ == '__main__':
     trainset_info = {"path": "Train", "dataset_name": "realistic_un", "cam_id": 0,
                      "image_name": "image_t_{}_cam_{}.png",
                      "pos_file_name": "cam_pos.csv",
-                     "ndata": 10000, "epochs": 10, "batch_size": 4}
+                     "ndata": 100, "epochs": 1, "batch_size": 4}
 
-    # Tensor using CPU
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # Tensor using CPU or GPU
+    if torch.cuda.is_available(): 
+        device = torch.device("cuda:0") 
+        with warnings.catch_warnings(record=True) as w:
+            warnings.filterwarnings("error")
+            try:
+                torch.cuda.get_device_capability(device)
+            except Exception:
+                device = torch.device("cpu") 
     print(device)
 
     # Input data setup
