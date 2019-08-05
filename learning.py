@@ -14,13 +14,14 @@ from torch.utils.data import Dataset, DataLoader
 
 
 class PosEstimationDataset(Dataset):
-    def __init__(self, dataset_name, pos_file_name, image_file_name, size, cam_id, transform=None):
-        self.dataset_name = dataset_name
-        self.pos_file_name = pos_file_name
-        self.image_file_name = image_file_name
-        self.size = size
-        self.cam_id = cam_id
-        self.all_pos_euler = self._prepare_pos(pos_file_name, size)
+    def __init__(self, set_info, transform=None):
+        self.path = set_info["path"]
+        self.dataset_name = set_info["dataset_name"]
+        self.pos_file_name = set_info["pos_file_name"]
+        self.image_file_name = set_info["image_name"]
+        self.size = set_info["ndata"]
+        self.cam_id = set_info["cam_id"]
+        self.all_pos_euler = self._prepare_pos(self.path + "/" + self.pos_file_name, self.size)
         self.transform = transform
 
     def __len__(self):
@@ -28,7 +29,7 @@ class PosEstimationDataset(Dataset):
 
     # Return dictionary of {image, pos}
     def __getitem__(self, idx):
-        img_name = os.path.join(self.dataset_name, self.image_file_name.format(idx, self.cam_id))
+        img_name = os.path.join(self.path, self.dataset_name, self.image_file_name.format(idx, self.cam_id))
         img = plt.imread(img_name)
         pos = self.all_pos_euler[idx, :]
 
@@ -58,23 +59,6 @@ class PosEstimationDataset(Dataset):
         return pos_euler.float()
 
 
-def show_batch_image(trainloader):
-    for i_batch, sample_batched in enumerate(trainloader):
-        print(i_batch, sample_batched['image'].size(),
-              sample_batched['pos'].size())
-
-        images_batch = sample_batched["image"]
-
-        if i_batch == 0:
-            plt.figure()
-            grid = torchvision.utils.make_grid(images_batch)
-            plt.imshow(grid.numpy().transpose((1, 2, 0)))
-            plt.axis('off')
-            plt.ioff()
-            plt.show()
-            break
-
-
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
@@ -95,6 +79,33 @@ class Net(nn.Module):
         x = self.fc3(x)
         return x
 
+    def save_model(self, trainset_info):
+        model_name = ("mdl_{}_eph_{}_btcsz_{}.pt").format(trainset_info["dataset_name"],
+                                                          trainset_info["epochs"],
+                                                          trainset_info["batch_size"])
+        model_path = os.path.join(trainset_info["path"], model_name)
+        torch.save(self.state_dict(), model_path)
+        print("Saved model to " + model_path)
+
+
+
+
+def show_batch_image(trainloader):
+    for i_batch, sample_batched in enumerate(trainloader):
+        print(i_batch, sample_batched['image'].size(),
+              sample_batched['pos'].size())
+
+        images_batch = sample_batched["image"]
+
+        if i_batch == 0:
+            plt.figure()
+            grid = torchvision.utils.make_grid(images_batch)
+            plt.imshow(grid.numpy().transpose((1, 2, 0)))
+            plt.axis('off')
+            plt.ioff()
+            plt.show()
+            break
+
 
 def plot_array(data):
     plt.figure()
@@ -103,13 +114,20 @@ def plot_array(data):
     plt.show()
 
 
+def save_loss(trainset_info, loss):
+    loss_file_name = ("loss_{}_eph_{}_btcsz_{}.pt").format(trainset_info["dataset_name"],
+                                                           trainset_info["epochs"],
+                                                           trainset_info["batch_size"])
+    loss_file_path = os.path.join(trainset_info["path"], loss_file_name)
+    np.savetxt(loss, loss_file_path)
+
+
 if __name__ == '__main__':
-    os.chdir("datasets/Set02/Train")
-    dataset_name = "realistic_un"
-    cam_id = 0
-    ndata = 10000
-    epochs = 1
-    batch_size = 4
+    os.chdir("datasets/Set02")
+    trainset_info = {"path": "Train", "dataset_name": "realistic_un", "cam_id": 0,
+                     "image_name": "image_t_{}_cam_{}.png",
+                     "pos_file_name": "cam_pos.csv",
+                     "ndata": 10000, "epochs": 10, "batch_size": 4}
 
     # Tensor using CPU
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -118,9 +136,8 @@ if __name__ == '__main__':
     # Input data setup
     trsfm = transforms.Compose(
         [transforms.ToTensor()])
-    trainset = PosEstimationDataset(dataset_name, "cam_pos.csv",
-                                    "image_t_{}_cam_{}.png", ndata, cam_id, transform=trsfm)
-    trainloader = DataLoader(trainset, batch_size=batch_size, shuffle=True)
+    trainset = PosEstimationDataset(trainset_info, transform=trsfm)
+    trainloader = DataLoader(trainset, batch_size=trainset_info["batch_size"], shuffle=True)
 
     # Network setup
     net = Net()
@@ -130,9 +147,12 @@ if __name__ == '__main__':
     optimizer = optim.Adam(net.parameters(), lr=0.001)
 
     # Initialise loss array
-    losses = np.empty(int(epochs * ndata / batch_size / 100))
+    size_p_batch = int(trainset_info["ndata"] / trainset_info["batch_size"])
+    loss_sample_size = 100
+    losses = np.empty(trainset_info["epochs"] * size_p_batch // loss_sample_size)
 
-    for epoch in range(epochs):  # loop over the dataset multiple times
+    # Training
+    for epoch in range(trainset_info["epochs"]):  # loop over the dataset multiple times
 
         running_loss = 0.0
         for i, data in enumerate(trainloader):
@@ -150,14 +170,18 @@ if __name__ == '__main__':
 
             # print statistics
             running_loss += loss.item()
-            if i % 100 == 99:  # print every 100 mini-batches
+            if i % loss_sample_size == loss_sample_size - 1:  # print every 100 mini-batches
                 # save loss
-                losses[epoch * ndata + i // 100] = loss
+                losses[epoch * size_p_batch + i // loss_sample_size] = loss
 
                 print('[%d, %5d] loss: %.3f' %
-                      (epoch + 1, i + 1, running_loss / 100))
+                      (epoch + 1, i + 1, running_loss / loss_sample_size))
                 running_loss = 0.0
-
     print('Finished Training')
 
     plot_array(losses)
+
+    # Save model and losses
+    net.save_model(trainset_info)
+
+    save_loss(trainset_info, loss)

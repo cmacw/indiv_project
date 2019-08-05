@@ -9,7 +9,7 @@
             https://www.roboti.us/resourcelicense.txt
     -->
     <visual>
-        <global offwidth="512" offheight="512"/>
+        <global offwidth="128" offheight="128"/>
         <headlight ambient="0.5 0.5 0.5"/>
         <quality shadowsize="512"/>
         <map znear="0.001"/>
@@ -26,10 +26,17 @@
         <texture name="texwall" builtin="checker" rgb1="0.956 0.921 0.282" width="512" height="512"/>
 
         <!--png texture-->
-        <texture name="texwood1" type="2d" file="Texture/wood1.png"/>
-        <texture name="texwood2" type="2d" file="Texture/wood2.png"/>
-        <texture name="texwood12" type="2d" file="Texture/Wood_012_SD/Wood_planks_012_basecolor.png"/>
-        <texture name="texwood18" type="2d" file="Texture/Wood_018_SD/Wood_018_basecolor.png"/>
+        <texture name="texwood1" type="2d" file="Texture/MuJoCo_use/Wood01.png"/>
+        <texture name="texwood2" type="2d" file="Texture/MuJoCo_use/Wood02.png"/>
+        <texture name="texwood3" type="2d" file="Texture/MuJoCo_use/Wood03.png"/>
+        <texture name="texwood4" type="2d" file="Texture/MuJoCo_use/Wood04.png"/>
+        <texture name="texwood7" type="2d" file="Texture/MuJoCo_use/Wood07.png"/>
+        <texture name="texwood10" type="2d" file="Texture/MuJoCo_use/Wood10.png"/>
+        <texture name="texwood11" type="2d" file="Texture/MuJoCo_use/Wood11.png"/>
+        <texture name="texwood12" type="2d" file="Texture/MuJoCo_use/Wood12.png"/>
+        <texture name="texwood13" type="2d" file="Texture/MuJoCo_use/Wood13.png"/>
+        <texture name="texwood16" type="2d" file="Texture/MuJoCo_use/Wood16.png"/>
+        <texture name="texwood18" type="2d" file="Texture/MuJoCo_use/Wood18.png"/>
 
         <material name="matplane" texture="texplane" texrepeat="200 200"/>
         <material name="matbox" texture="texboxred" emission="0" texrepeat="4 4"/>
@@ -55,8 +62,8 @@
         <camera name="testcam" pos="0 -10 10" euler="30 0 0"/>
         <camera name="testcam2" pos="0 -10 10" euler="30 0 0"/>
 
-        <body pos="0 05 1">
-            <geom name="dummy" type="box" size="0.1 0.05 0.05"/>
-        </body>
+        <!--        <body pos="0 05 1">-->
+        <!--            <geom name="dummy" type="box" size="0.1 0.05 0.05"/>-->
+        <!--        </body>-->
     </worldbody>
 </mujoco>
