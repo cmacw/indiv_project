@@ -116,12 +116,12 @@ def plot_array(data):
     plt.show()
 
 
-def save_loss(trainset_info, loss):
+def save_loss(trainset_info, losses):
     loss_file_name = ("loss_{}_eph_{}_btcsz_{}.csv").format(trainset_info["dataset_name"],
                                                            trainset_info["epochs"],
                                                            trainset_info["batch_size"])
     loss_file_path = os.path.join(trainset_info["path"], loss_file_name)
-    np.savetxt(loss, loss_file_path)
+    np.savetxt(loss_file_path, losses)
 
 
 if __name__ == '__main__':
@@ -193,4 +193,4 @@ if __name__ == '__main__':
     # Save model and losses
     net.save_model(trainset_info)
 
-    save_loss(trainset_info, loss)
+    save_loss(trainset_info, losses)
