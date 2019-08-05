@@ -114,12 +114,12 @@ def plot_array(data):
     plt.show()
 
 
-def save_loss(trainset_info, loss):
-    loss_file_name = ("loss_{}_eph_{}_btcsz_{}.pt").format(trainset_info["dataset_name"],
+def save_loss(trainset_info, losses):
+    loss_file_name = ("loss_{}_eph_{}_btcsz_{}.csv").format(trainset_info["dataset_name"],
                                                            trainset_info["epochs"],
                                                            trainset_info["batch_size"])
     loss_file_path = os.path.join(trainset_info["path"], loss_file_name)
-    np.savetxt(loss, loss_file_path)
+    np.savetxt(loss_file_path, losses)
 
 
 if __name__ == '__main__':
@@ -127,7 +127,7 @@ if __name__ == '__main__':
     trainset_info = {"path": "Train", "dataset_name": "realistic_un", "cam_id": 0,
                      "image_name": "image_t_{}_cam_{}.png",
                      "pos_file_name": "cam_pos.csv",
-                     "ndata": 10000, "epochs": 10, "batch_size": 4}
+                     "ndata": 1000, "epochs": 1, "batch_size": 4}
 
     # Tensor using CPU
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -184,4 +184,4 @@ if __name__ == '__main__':
     # Save model and losses
     net.save_model(trainset_info)
 
-    save_loss(trainset_info, loss)
+    save_loss(trainset_info, losses)
