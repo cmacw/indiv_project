@@ -15,7 +15,6 @@ from scipy.spatial.transform import Rotation
 from torch.utils.data import Dataset, DataLoader
 
 
-
 class PosEstimationDataset(Dataset):
     def __init__(self, set_info, transform=None):
         self.path = set_info["path"]
@@ -91,138 +90,157 @@ class Net(nn.Module):
         print("Saved model to " + model_path)
 
 
+class PoseEstimation:
+    def __init__(self, dataset_info):
+        self.dataset_info = dataset_info
 
+        # Tensor using CPU or GPU
+        self.device = self.use_cuda()
 
-def show_batch_image(trainloader):
-    for i_batch, sample_batched in enumerate(trainloader):
-        print(i_batch, sample_batched['image'].size(),
-              sample_batched['pos'].size())
+        # Input data setup
+        trsfm = transforms.Compose([transforms.ToTensor()])
+        self.dataset = PosEstimationDataset(self.dataset_info, transform=trsfm)
+        self.dataloader = DataLoader(self.dataset, batch_size=self.dataset_info["batch_size"], shuffle=True)
 
-        images_batch = sample_batched["image"]
+        # model setup
+        self.net = Net()
+        self.net.to(self.device)
+        self.criterion = nn.MSELoss()
+        # optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+        self.optimizer = optim.Adam(self.net.parameters(), lr=0.001)
 
-        if i_batch == 0:
-            plt.figure()
-            grid = torchvision.utils.make_grid(images_batch)
-            plt.imshow(grid.numpy().transpose((1, 2, 0)))
-            plt.axis('off')
-            plt.ioff()
-            plt.show()
-            break
+    def run(self):
+        # Initialise loss array
+        loss_sample_size = 100
+        loss_p_epoch = len(self.dataloader) // loss_sample_size
+        self.losses = np.empty(self.dataset_info["epochs"] * loss_p_epoch)
 
+        # Initialise distance and angle diff array
+        self.diff = np.empty([self.dataset_info["epochs"] * len(self.dataloader), 2])
 
-def plot_array(data, ylabel):
-    plt.figure()
-    plt.plot(data)
-    plt.ylabel(ylabel)
-    plt.show()
+        # Training
+        t0 = time.time()
+        for epoch in range(self.dataset_info["epochs"]):  # loop over the dataset multiple times
 
+            running_loss = 0.0
+            for i, data in enumerate(self.dataloader):
 
-def save_loss(trainset_info, losses):
-    loss_file_name = ("loss_{}_eph_{}_btcsz_{}.csv").format(trainset_info["dataset_name"],
-                                                           trainset_info["epochs"],
-                                                           trainset_info["batch_size"])
-    loss_file_path = os.path.join(trainset_info["path"], loss_file_name)
-    np.savetxt(loss_file_path, losses)
+                # get the inputs; data is a dictionary of {image, pos}
+                image, pos = data['image'].to(self.device), data['pos'].to(self.device)
 
-def cal_diff(outputs, pos):
-    out_np = outputs.cpu().detach().numpy()
-    pos_np = pos.cpu().detach().numpy()
+                # zero the parameter gradients
+                self.optimizer.zero_grad()
 
-    squared = np.power((out_np[:, :3] - pos_np[:, :3]), 2)
-    diff_distances = np.sum(squared, 1)
+                # forward + backward + optimize
+                outputs = self.net(image)
+                loss = self.criterion(outputs, pos)
+                loss.backward()
+                self.optimizer.step()
 
-    # Calculate the angle
-    out_rot = Rotation.from_euler("zyx", out_np[:, 3:], degrees=True)
-    pos_rot = Rotation.from_euler("zyx", pos_np[:, 3:], degrees=True)
+                # Calculate the difference in euclidean distance and angles
+                self.diff[epoch * len(self.dataloader) + i, :] = np.average(self.cal_diff(outputs, pos), axis=1)
 
-    # diff * output = pos
-    # diff = pos * inv(output)
-    rot = pos_rot * out_rot.inv()
-    diff_angle = np.rad2deg(np.arccos(rot._quat[:, 3]) * 2)
-    diff_angle = diff_angle - (diff_angle > 180) * 360
-    return [diff_distances, diff_angle]
+                # print statistics
+                running_loss += loss.item()
+                if i % loss_sample_size == loss_sample_size - 1:  # print every 100 mini-batches
+                    # save loss
+                    self.losses[epoch * loss_p_epoch + i // loss_sample_size] = loss
 
-def main():
-    os.chdir("datasets/Set02")
-    trainset_info = {"path": "Train", "dataset_name": "realistic_un", "cam_id": 0,
-                     "image_name": "image_t_{}_cam_{}.png",
-                     "pos_file_name": "cam_pos.csv",
-                     "ndata": 10000, "epochs": 25, "batch_size": 4}
+                    print('[{}, {}] loss: {:.3f}, diff_[distance, angle]: {})'.
+                          format(epoch + 1, i + 1, running_loss / loss_sample_size,
+                                 self.diff[epoch * len(self.dataloader) + i]))
+                    running_loss = 0.0
+        t1 = time.time()
+        print('\nFinished Training. Time taken: {}'.format(t1 - t0))
 
-    # Tensor using CPU or GPU
-    if torch.cuda.is_available(): 
-        device = torch.device("cuda:0") 
-        with warnings.catch_warnings(record=True) as w:
-            warnings.filterwarnings("error")
-            try:
-                torch.cuda.get_device_capability(device)
-            except Exception:
-                device = torch.device("cpu") 
-    print(device)
+        # Save model and losses
+        self.net.save_model(self.dataset_info)
+        self.save_loss(trainset_info, self.losses)
 
-    # Input data setup
-    trsfm = transforms.Compose(
-        [transforms.ToTensor()])
-    trainset = PosEstimationDataset(trainset_info, transform=trsfm)
-    trainloader = DataLoader(trainset, batch_size=trainset_info["batch_size"], shuffle=True)
+    def show_training_fig(self):
+        # Visualise the MSE losses
+        self.plot_array(self.losses, "MSE_losses", self.dataset_info)
+        self.plot_array(self.diff[:, 0], "Difference_in_distance(m)", self.dataset_info)
+        self.plot_array(self.diff[:, 1], "Difference_in_angle(deg)", self.dataset_info)
 
-    # Network setup
-    net = Net()
-    net.to(device)
-    criterion = nn.MSELoss()
-    # optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-    optimizer = optim.Adam(net.parameters(), lr=0.001)
+    def use_cuda(self):
+        if torch.cuda.is_available():
+            device = torch.device("cuda:0")
+            with warnings.catch_warnings(record=True) as w:
+                warnings.filterwarnings("error")
+                try:
+                    torch.cuda.get_device_capability(device)
+                except Exception:
+                    device = torch.device("cpu")
+        print(device)
+        return device
 
-    # Initialise loss array
-    loss_sample_size = 100
-    loss_p_epoch = len(trainloader) // loss_sample_size
-    losses = np.empty(trainset_info["epochs"] * loss_p_epoch)
+    def show_batch_image(self):
+        for i_batch, sample_batched in enumerate(self.trainloader):
+            print(i_batch, sample_batched['image'].size(),
+                  sample_batched['pos'].size())
 
-    # Initialise distance and angle diff array
-    diff = np.empty([trainset_info["epochs"] * len(trainloader), 2])
+            images_batch = sample_batched["image"]
 
-    # Training
-    t0 = time.time()
-    for epoch in range(trainset_info["epochs"]):  # loop over the dataset multiple times
+            if i_batch == 0:
+                plt.figure()
+                grid = torchvision.utils.make_grid(images_batch)
+                plt.imshow(grid.numpy().transpose((1, 2, 0)))
+                plt.axis('off')
+                plt.ioff()
+                plt.show()
+                break
 
-        running_loss = 0.0
-        for i, data in enumerate(trainloader):
+    def plot_array(self, data, ylabel, trainset_info):
+        plt.figure()
+        plt.plot(data)
+        plt.ylabel(ylabel)
+        fig_name = ("fig_{}_eph_{}_btcsz_{}_{}.png").format(trainset_info["dataset_name"],
+                                                            trainset_info["epochs"],
+                                                            trainset_info["batch_size"],
+                                                            ylabel)
+        plt.savefig(fig_name)
+        plt.show()
 
-            # get the inputs; data is a dictionary of {image, pos}
-            image, pos = data['image'].to(device), data['pos'].to(device)
+    def save_loss(self, trainset_info, losses):
+        loss_file_name = ("loss_{}_eph_{}_btcsz_{}.csv").format(trainset_info["dataset_name"],
+                                                                trainset_info["epochs"],
+                                                                trainset_info["batch_size"])
+        loss_file_path = os.path.join(trainset_info["path"], loss_file_name)
+        np.savetxt(loss_file_path, losses)
 
-            # zero the parameter gradients
-            optimizer.zero_grad()
+    def cal_diff(self, predict, true, degree=True):
+        # predict and ture has size [batch_size, 6]
+        # [:, :3] is the translational position
+        # [:, 3:] is the rotation in euler angle
+        out_np = predict.cpu().detach().numpy()
+        pos_np = true.cpu().detach().numpy()
 
-            # forward + backward + optimize
-            outputs = net(image)
-            loss = criterion(outputs, pos)
-            loss.backward()
-            optimizer.step()
+        # Get the euclidean distance
+        diff_distances = np.linalg.norm((out_np[:, :3] - pos_np[:, :3]), axis=1)
 
-            # Calculate the difference in euclidean distance and angles
-            diff[epoch * len(trainloader) + i, :] = np.average(cal_diff(outputs, pos), axis=1)
-
-            # print statistics
-            running_loss += loss.item()
-            if i % loss_sample_size == loss_sample_size - 1:  # print every 100 mini-batches
-                # save loss
-                losses[epoch * loss_p_epoch + i // loss_sample_size] = loss
-
-                print('[%d, %5d] loss: %.3f' %
-                      (epoch + 1, i + 1, running_loss / loss_sample_size))
-                running_loss = 0.0
-    t1 = time.time()
-    print('\nFinished Training. Time taken: {}'.format(t1-t0))
-
-    # Visualise the MSE losses
-    plot_array(losses, "MSE losses")
-    plot_array(diff, "Differences")
-
-    # Save model and losses
-    net.save_model(trainset_info)
-    save_loss(trainset_info, losses)
+        # Calculate the rotation angle from predicated(output) to true(input)
+        # diff * output = pos
+        # diff = pos * inv(output)
+        # Since the rotvec is the vector of the axis multplited by the angle
+        # The angle is found by finding magnitude of the vector
+        out_rot = Rotation.from_euler("zyx", out_np[:, 3:], degrees=degree)
+        pos_rot = Rotation.from_euler("zyx", pos_np[:, 3:], degrees=degree)
+        rot = pos_rot * out_rot.inv()
+        diff_angle = rot.as_rotvec()
+        diff_rot = np.linalg.norm(diff_angle, axis=1)
+        if degree:
+            diff_rot = np.rad2deg(diff_rot)
+        return [diff_distances, diff_rot]
 
 
 if __name__ == '__main__':
-    main()
+    os.chdir("datasets/Set02")
+
+    trainset_info = {"path": "Train", "dataset_name": "realistic_un", "cam_id": 0,
+                     "image_name": "image_t_{}_cam_{}.png",
+                     "pos_file_name": "cam_pos.csv",
+                     "ndata": 10000, "epochs": 1, "batch_size": 4}
+
+    trainer = PoseEstimation(trainset_info)
+    trainer.run()
