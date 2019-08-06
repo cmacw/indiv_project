@@ -1,6 +1,7 @@
 import math
 import os
 import warnings
+import time
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -146,7 +147,7 @@ def main():
     trainset_info = {"path": "Train", "dataset_name": "realistic_un", "cam_id": 0,
                      "image_name": "image_t_{}_cam_{}.png",
                      "pos_file_name": "cam_pos.csv",
-                     "ndata": 10000, "epochs": 2, "batch_size": 4}
+                     "ndata": 10000, "epochs": 25, "batch_size": 4}
 
     # Tensor using CPU or GPU
     if torch.cuda.is_available(): 
@@ -181,6 +182,7 @@ def main():
     diff = np.empty([trainset_info["epochs"] * len(trainloader), 2])
 
     # Training
+    t0 = time.time()
     for epoch in range(trainset_info["epochs"]):  # loop over the dataset multiple times
 
         running_loss = 0.0
@@ -210,13 +212,13 @@ def main():
                 print('[%d, %5d] loss: %.3f' %
                       (epoch + 1, i + 1, running_loss / loss_sample_size))
                 running_loss = 0.0
-    print('Finished Training')
-
-
+    t1 = time.time()
+    print('\nFinished Training. Time taken: {}'.format(t1-t0))
 
     # Visualise the MSE losses
     plot_array(losses, "MSE losses")
     plot_array(diff, "Differences")
+
     # Save model and losses
     net.save_model(trainset_info)
     save_loss(trainset_info, losses)
