@@ -8,14 +8,14 @@ from torch.utils.data import Dataset
 
 
 class PosEstimationDataset(Dataset):
-    def __init__(self, set_info, transform=None, degrees=True):
+    def __init__(self, set_info, transform=None):
         self.path = set_info["path"]
         self.dataset_name = set_info["dataset_name"]
         self.pos_file_name = set_info["pos_file_name"]
         self.image_file_name = set_info["image_name"]
         self.size = set_info["ndata"]
         self.cam_id = set_info["cam_id"]
-        self.all_pos_euler = self._prepare_pos(self.path + "/" + self.pos_file_name, self.size, degrees)
+        self.all_pos_euler = self._prepare_pos(self.path + "/" + self.pos_file_name, self.size)
         self.transform = transform
 
     def __len__(self):
@@ -39,12 +39,12 @@ class PosEstimationDataset(Dataset):
 
     # Change rotation matrix [:, 3:12] to euler angles and
     # Return pos and euler angles together as Tensor
-    def _prepare_pos(self, pos_file_path, size, degrees=True):
+    def _prepare_pos(self, pos_file_path, size):
         full_state = self._read_csv(pos_file_path, size)
         rot_mat = np.reshape(full_state[:, 3:], (-1, 3, 3))
 
         # Transform the rotation to euler
-        rot_euler = Rotation.from_dcm(rot_mat).as_euler('zyx', degrees=degrees)
+        rot_euler = Rotation.from_dcm(rot_mat).as_euler('zyx')
 
         # Combine position and euler
         full_state[:, 3:6] = rot_euler

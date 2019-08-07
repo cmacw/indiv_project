@@ -17,15 +17,15 @@ from PosEstimationDataset import PosEstimationDataset
 
 
 class PoseEstimation:
-    def __init__(self, dataset_info, degrees=True):
+    def __init__(self, dataset_info):
         self.dataset_info = dataset_info
-        self.degrees = degrees
+
         # Tensor using CPU or GPU
         self.device = self.use_cuda()
 
         # Input data setup
         trsfm = transforms.Compose([transforms.ToTensor()])
-        self.dataset = PosEstimationDataset(self.dataset_info, transform=trsfm, degrees=degrees)
+        self.dataset = PosEstimationDataset(self.dataset_info, transform=trsfm)
         self.dataloader = DataLoader(self.dataset, batch_size=self.dataset_info["batch_size"], shuffle=True)
 
         # model setup
@@ -65,7 +65,7 @@ class PoseEstimation:
 
                 # Calculate the difference in euclidean distance and angles
                 self.diff[epoch * len(self.dataloader) + i, :] = \
-                    np.average(self.cal_diff(outputs, pos, self.degrees), axis=1)
+                    np.average(self.cal_diff(outputs, pos), axis=1)
                 self.losses[epoch * len(self.dataloader) + i] = loss.item()
 
                 # print statistics
@@ -73,7 +73,7 @@ class PoseEstimation:
                 if i % loss_sample_size == loss_sample_size - 1:  # print every 100 mini-batches
                     # save loss
 
-                    print('[{}, {}] loss: {:.3f}, diff_[distance, angle]: {})'.
+                    print('[{}, {}] loss: {:.3f}, diff_[distance, angle]: {}'.
                           format(epoch + 1, i + 1, running_loss / loss_sample_size,
                                  self.diff[epoch * len(self.dataloader) + i]))
                     running_loss = 0.0
@@ -98,7 +98,7 @@ class PoseEstimation:
             loss = self.criterion(outputs, pos)
 
             # Calculate the difference in euclidean distance and angles
-            self.diff[i, :] = np.average(self.cal_diff(outputs, pos, self.degrees), axis=1)
+            self.diff[i, :] = np.average(self.cal_diff(outputs, pos), axis=1)
             self.losses[i] = loss.item()
 
             # print statistics
@@ -174,7 +174,7 @@ class PoseEstimation:
         file_path = os.path.join(trainset_info["path"], file_name)
         np.savetxt(file_path, data, delimiter=",")
 
-    def cal_diff(self, predict, true, degree=True):
+    def cal_diff(self, predict, true):
         # predict and ture has size [batch_size, 6]
         # [:, :3] is the translational position
         # [:, 3:] is the rotation in euler angle
@@ -189,13 +189,13 @@ class PoseEstimation:
         # diff = pos * inv(output)
         # Since the rotvec is the vector of the axis multplited by the angle
         # The angle is found by finding magnitude of the vector
-        out_rot = Rotation.from_euler("zyx", out_np[:, 3:], degrees=degree)
-        pos_rot = Rotation.from_euler("zyx", pos_np[:, 3:], degrees=degree)
+        out_rot = Rotation.from_euler("zyx", out_np[:, 3:])
+        pos_rot = Rotation.from_euler("zyx", pos_np[:, 3:])
         rot = pos_rot * out_rot.inv()
         diff_angle = rot.as_rotvec()
         diff_rot = np.linalg.norm(diff_angle, axis=1)
-        if degree:
-            diff_rot = np.rad2deg(diff_rot)
+        diff_rot = np.rad2deg(diff_rot)
+
         return [diff_distances, diff_rot]
 
     def load_model_parameter(self, path):
@@ -213,8 +213,8 @@ if __name__ == '__main__':
     trainset_info = {"path": "Train", "dataset_name": "realistic_un", "cam_id": 0,
                      "image_name": "image_t_{}_cam_{}.png",
                      "pos_file_name": "cam_pos.csv",
-                     "ndata": 15000, "epochs": 25, "batch_size": 4}
-    trainer = PoseEstimation(trainset_info, degrees=True)
+                     "ndata": 10000, "epochs": 25, "batch_size": 32}
+    trainer = PoseEstimation(trainset_info)
     # Recover parameters. CHECK BEFORE RUN!!
     # trainer.net.load_state_dict(torch.load("Train/mdl_realistic_un_eph_25_btcsz_4.pt"))
     trainer.train()
@@ -226,6 +226,6 @@ if __name__ == '__main__':
                     "image_name": "image_t_{}_cam_{}.png",
                     "pos_file_name": "cam_pos_test.csv",
                     "ndata": 1000, "epochs": 1, "batch_size": 1}
-    tester = PoseEstimation(testset_info, degrees=True)
-    tester.net.load_state_dict(torch.load("Train/mdl_realistic_un_eph_25_btcsz_4.pt"))
+    tester = PoseEstimation(testset_info)
+    tester.net.load_state_dict(torch.load("Train/mdl_realistic_un_eph_25_btcsz_32.pt"))
     tester.evaluation()
