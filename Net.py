@@ -3,6 +3,7 @@ import os
 import torch
 import torch.nn as nn
 
+
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
@@ -24,9 +25,10 @@ class Net(nn.Module):
         return x
 
     def save_model_parameter(self, trainset_info):
+        folder_name = trainset_info["dataset_name"] + "_results/"
         model_name = ("mdl_{}_eph_{}_btcsz_{}.pt").format(trainset_info["dataset_name"],
                                                           trainset_info["epochs"],
                                                           trainset_info["batch_size"])
-        model_path = os.path.join(trainset_info["path"], model_name)
+        model_path = os.path.join(trainset_info["path"], folder_name, model_name)
         torch.save(self.state_dict(), model_path)
         print("Saved model to " + model_path)
