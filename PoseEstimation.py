@@ -21,7 +21,7 @@ class PoseEstimation:
         self.trainset_info = trainset_info
 
         # Tensor using CPU or GPU
-        self.device = self.use_cuda()
+        self.device = self._use_cuda()
 
         # Input data setup
         self.trsfm = transforms.Compose([transforms.ToTensor()])
@@ -36,8 +36,14 @@ class PoseEstimation:
         self.net = Net()
         self.net.to(self.device)
         self.criterion = nn.MSELoss()
+
         # optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-        self.optimizer = optim.Adam(self.net.parameters(), lr=0.001)
+        self.optimizer = optim.Adam(self.net.parameters(), lr=0.001, weight_decay=0.001)
+
+        # initialise directory for saving training results
+        self.save_dir = os.path.join(trainset_info["path"],
+                                     trainset_info["dataset_name"] + "_results",
+                                     "eph{}_bs{}".format(trainset_info["epochs"], trainset_info["batch_size"]))
 
     def load_test_set(self, testset_info):
         self.testset_info = testset_info
@@ -45,7 +51,9 @@ class PoseEstimation:
         self.testloader = DataLoader(self.testset, shuffle=True)
 
     def train(self, show_fig=True, save_output=True, eval_eph=False):
-        loss_sample_size = 100
+        os.mkdir(self.save_dir)
+
+        loss_sample_size = len(self.trainloader) // 4
 
         # Initialise loss array
         train_losses = np.empty(self.trainset_info["epochs"] * len(self.trainloader))
@@ -54,7 +62,7 @@ class PoseEstimation:
         eph_losses = np.empty(self.trainset_info["epochs"])
         eph_diff = np.empty([self.trainset_info["epochs"], 2])
 
-        # Training
+        # Begin training
         t0 = time.time()
         for epoch in range(self.trainset_info["epochs"]):  # loop over the dataset multiple times
 
@@ -80,9 +88,7 @@ class PoseEstimation:
 
                 # print statistics
                 running_loss += loss.item()
-                if i % loss_sample_size == loss_sample_size - 1:  # print every 100 mini-batches
-                    # save loss
-
+                if i % loss_sample_size == loss_sample_size - 1:
                     print('[{}, {}] loss: {:.3f}'.
                           format(epoch + 1, i + 1, running_loss / loss_sample_size))
                     running_loss = 0.0
@@ -133,7 +139,7 @@ class PoseEstimation:
 
         return self.print_avg_stat(losses, diff)
 
-    def use_cuda(self):
+    def _use_cuda(self):
         device = torch.device("cpu")
         if torch.cuda.is_available():
             device = torch.device("cuda:0")
@@ -165,7 +171,7 @@ class PoseEstimation:
 
     # Save model and losses
     def save_model_output(self, train_losses, test_losses, test_diff):
-        self.net.save_model_parameter(self.trainset_info)
+        self.net.save_model_parameter(self.trainset_info, self.save_dir)
         self.save_array2csv(self.trainset_info, train_losses, "train_loss")
         self.save_array2csv(self.trainset_info, test_losses, "eph_loss")
         self.save_array2csv(self.trainset_info, test_diff, "diff")
@@ -182,12 +188,11 @@ class PoseEstimation:
         plt.plot(test_losses, label="test")
         plt.ylabel("MSE_losses")
         plt.legend()
-        folder_name = self.trainset_info["dataset_name"] + "_results/"
-        fig_name = "fig_{}_eph{}_btcsz{}_{}.png".format(self.trainset_info["dataset_name"],
-                                                        self.trainset_info["epochs"],
-                                                        self.trainset_info["batch_size"],
-                                                        "MSE_losses_comp")
-        file_path = os.path.join(self.trainset_info["path"], folder_name, fig_name)
+        fig_name = "fig_{}_eph{}_bs{}_{}.png".format(self.trainset_info["dataset_name"],
+                                                     self.trainset_info["epochs"],
+                                                     self.trainset_info["batch_size"],
+                                                     "MSE_losses_comp")
+        file_path = os.path.join(self.save_dir, fig_name)
         plt.savefig(file_path)
 
     def plot_array(self, data, ylabel, trainset_info, scatter=False):
@@ -198,21 +203,20 @@ class PoseEstimation:
         else:
             plt.plot(data)
         plt.ylabel(ylabel)
-        folder_name = trainset_info["dataset_name"] + "_results/"
-        fig_name = "fig_{}_eph{}_btcsz{}_{}.png".format(trainset_info["dataset_name"],
-                                                        trainset_info["epochs"],
-                                                        trainset_info["batch_size"],
-                                                        ylabel)
-        file_path = os.path.join(trainset_info["path"], folder_name, fig_name)
+
+        fig_name = "fig_{}_eph{}_bs{}_{}.png".format(trainset_info["dataset_name"],
+                                                     trainset_info["epochs"],
+                                                     trainset_info["batch_size"],
+                                                     ylabel)
+        file_path = os.path.join(self.save_dir, fig_name)
         plt.savefig(file_path)
 
     def save_array2csv(self, trainset_info, data, name):
-        folder_name = trainset_info["dataset_name"] + "_results/"
-        file_name = "{}_{}_eph{}_btcsz{}.csv".format(name,
-                                                     trainset_info["dataset_name"],
-                                                     trainset_info["epochs"],
-                                                     trainset_info["batch_size"])
-        file_path = os.path.join(trainset_info["path"], folder_name, file_name)
+        file_name = "{}_{}_eph{}_bs{}.csv".format(name,
+                                                  trainset_info["dataset_name"],
+                                                  trainset_info["epochs"],
+                                                  trainset_info["batch_size"])
+        file_path = os.path.join(self.save_dir, file_name)
         np.savetxt(file_path, data, delimiter=",")
 
     def cal_diff(self, predict, true):
@@ -247,7 +251,3 @@ class PoseEstimation:
         avg_diff = np.average(diff, axis=0)
         print("avg loss: {:.3f} | avg[distance, angle] {}\n".format(avg_loss, avg_diff))
         return avg_loss, avg_diff
-
-
-
-
