@@ -51,56 +51,59 @@ class PoseEstimation:
         self.testloader = DataLoader(self.testset, shuffle=True)
 
     def train(self, show_fig=True, save_output=True, eval_eph=False):
-        os.mkdir(self.save_dir)
-
         loss_sample_size = len(self.trainloader) // 4
 
         # Initialise loss array
-        train_losses = np.empty(self.trainset_info["epochs"] * len(self.trainloader))
+        train_losses = np.zeros(self.trainset_info["epochs"] * len(self.trainloader))
 
         # Initialise distance and angle diff array
-        eph_losses = np.empty(self.trainset_info["epochs"])
-        eph_diff = np.empty([self.trainset_info["epochs"], 2])
+        eph_losses = np.zeros(self.trainset_info["epochs"])
+        eph_diff = np.zeros([self.trainset_info["epochs"], 2])
 
         # Begin training
         t0 = time.time()
-        for epoch in range(self.trainset_info["epochs"]):  # loop over the dataset multiple times
+        try:
+            for epoch in range(self.trainset_info["epochs"]):  # loop over the dataset multiple times
 
-            running_loss = 0.0
-            for i, data in enumerate(self.trainloader):
-                # Set network to training mode
-                self.net.train()
+                running_loss = 0.0
+                for i, data in enumerate(self.trainloader):
+                    # Set network to training mode
+                    self.net.train()
 
-                # get the inputs; data is a dictionary of {image, pos}
-                image, pos = data['image'].to(self.device), data['pos'].to(self.device)
+                    # get the inputs; data is a dictionary of {image, pos}
+                    image, pos = data['image'].to(self.device), data['pos'].to(self.device)
 
-                # zero the parameter gradients
-                self.optimizer.zero_grad()
+                    # zero the parameter gradients
+                    self.optimizer.zero_grad()
 
-                # forward + backward + optimize
-                outputs = self.net(image)
-                loss = self.criterion(outputs, pos)
-                loss.backward()
-                self.optimizer.step()
+                    # forward + backward + optimize
+                    outputs = self.net(image)
+                    loss = self.criterion(outputs, pos)
+                    loss.backward()
+                    self.optimizer.step()
 
-                # Calculate the difference in euclidean distance and angles
-                train_losses[epoch * len(self.trainloader) + i] = loss.item()
+                    # Calculate the difference in euclidean distance and angles
+                    train_losses[epoch * len(self.trainloader) + i] = loss.item()
 
-                # print statistics
-                running_loss += loss.item()
-                if i % loss_sample_size == loss_sample_size - 1:
-                    print('[{}, {}] loss: {:.3f}'.
-                          format(epoch + 1, i + 1, running_loss / loss_sample_size))
-                    running_loss = 0.0
+                    # print statistics
+                    running_loss += loss.item()
+                    if i % loss_sample_size == loss_sample_size - 1:
+                        print('[{}, {}] loss: {:.3f}'.
+                              format(epoch + 1, i + 1, running_loss / loss_sample_size))
+                        running_loss = 0.0
 
-            # Run evaluation and show results
-            if eval_eph:
-                print('[Epoch', epoch + 1, end='] Test ')
-                eph_losses[epoch], eph_diff[epoch, :] = self.evaluation()
+                # Run evaluation and show results
+                if eval_eph:
+                    print('[Epoch', epoch + 1, '] Test ')
+                    eph_losses[epoch], eph_diff[epoch, :] = self.evaluation()
+        except KeyboardInterrupt:
+            pass
 
         t1 = time.time()
         print('\nFinished Training. Time taken: {}'.format(t1 - t0))
 
+        # Save output
+        os.mkdir(self.save_dir)
         if save_output:
             self.save_model_output(train_losses, eph_losses, eph_diff)
 
@@ -111,15 +114,11 @@ class PoseEstimation:
     def evaluation(self):
         assert self.testset is not None, \
             "No testset is supplied. Make sure PoseEstimation.load_test_set(set_info) is called"
-
-        loss_sample_size = 100
-        running_loss = 0
-
         # Initialise loss array
-        losses = np.empty(len(self.testloader))
+        losses = np.zeros(len(self.testloader))
 
         # Initialise distance and angle diff array
-        diff = np.empty([len(self.testloader), 2])
+        diff = np.zeros([len(self.testloader), 2])
 
         # turn on evaluation mode
         self.net.eval()
@@ -129,7 +128,7 @@ class PoseEstimation:
             # get the inputs; data is a dictionary of {image, pos}
             image, pos = data['image'].to(self.device), data['pos'].to(self.device)
 
-            # forward + backward + optimize
+            # forward
             outputs = self.net(image)
             loss = self.criterion(outputs, pos)
 
@@ -137,6 +136,8 @@ class PoseEstimation:
             diff[i] = self.cal_diff(outputs, pos)
             losses[i] = loss.item()
 
+        print("pos: {}".format(pos[-1]))
+        print("output: {}".format(outputs[-1]))
         return self.print_avg_stat(losses, diff)
 
     def _use_cuda(self):

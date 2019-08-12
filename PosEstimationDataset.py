@@ -25,6 +25,7 @@ class PosEstimationDataset(Dataset):
     def __getitem__(self, idx):
         img_name = os.path.join(self.path, self.dataset_name, self.image_file_name.format(idx, self.cam_id))
         img = plt.imread(img_name)
+        # plt.imshow(img).show()
         pos = self.all_pos_euler[idx, :]
 
         if self.transform:
