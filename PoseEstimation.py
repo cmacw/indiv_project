@@ -24,7 +24,10 @@ class PoseEstimation:
         self.device = self._use_cuda()
 
         # Input data setup
-        self.trsfm = transforms.Compose([transforms.ToTensor()])
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        self.trsfm = transforms.Compose([transforms.Resize(224),
+                                         transforms.ToTensor(),
+                                         normalize])
         self.trainset = PosEstimationDataset(self.trainset_info, transform=self.trsfm)
         self.trainloader = DataLoader(self.trainset, batch_size=self.trainset_info["batch_size"], shuffle=True)
 
@@ -88,13 +91,13 @@ class PoseEstimation:
                     # print statistics
                     running_loss += loss.item()
                     if i % loss_sample_size == loss_sample_size - 1:
-                        print('[{}, {}] loss: {:.3f}'.
+                        print('[{}, {}] loss: {:.5f}'.
                               format(epoch + 1, i + 1, running_loss / loss_sample_size))
                         running_loss = 0.0
 
                 # Run evaluation and show results
                 if eval_eph:
-                    print('[Epoch', epoch + 1, '] Test ')
+                    print('[Epoch', epoch + 1, ']')
                     eph_losses[epoch], eph_diff[epoch, :] = self.evaluation()
         except KeyboardInterrupt:
             pass
@@ -250,5 +253,5 @@ class PoseEstimation:
     def print_avg_stat(self, losses, diff):
         avg_loss = np.average(losses)
         avg_diff = np.average(diff, axis=0)
-        print("avg loss: {:.3f} | avg[distance, angle] {}\n".format(avg_loss, avg_diff))
+        print("Test avg loss: {:.5f} | avg[distance, angle] {}\n".format(avg_loss, avg_diff))
         return avg_loss, avg_diff

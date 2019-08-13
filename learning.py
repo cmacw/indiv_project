@@ -13,7 +13,7 @@ def run_one_set(dataset):
     trainset_info = {"path": "Train", "dataset_name": dataset, "cam_id": 0,
                      "image_name": "image_t_{}_cam_{}.png",
                      "pos_file_name": "cam_pos.csv",
-                     "ndata": 10000, "epochs": 80, "batch_size": 128}
+                     "ndata": 10000, "epochs": 300, "batch_size": 32}
 
     testset_info = {"path": "Test", "dataset_name": dataset + "_test", "cam_id": 0,
                     "image_name": "image_t_{}_cam_{}.png",

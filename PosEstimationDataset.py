@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from scipy.spatial.transform import Rotation
+from PIL import Image
 from torch.utils.data import Dataset
 
 
@@ -25,11 +26,14 @@ class PosEstimationDataset(Dataset):
     def __getitem__(self, idx):
         img_name = os.path.join(self.path, self.dataset_name, self.image_file_name.format(idx, self.cam_id))
         img = plt.imread(img_name)
+        img = Image.open(img_name)
         # plt.imshow(img).show()
         pos = self.all_pos_euler[idx, :]
 
         if self.transform:
             img = self.transform(img)
+
+        plt.imshow(img.permute(1, 2, 0))
 
         sample = {"image": img, "pos": pos}
         return sample
