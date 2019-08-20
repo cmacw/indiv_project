@@ -24,10 +24,11 @@ class PoseEstimation:
         self.device = self._use_cuda()
 
         # Input data setup
-        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        self.trsfm = transforms.Compose([transforms.Resize(224),
-                                         transforms.ToTensor(),
-                                         normalize])
+        # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        # self.trsfm = transforms.Compose([transforms.Resize(224),
+        #                                  transforms.ToTensor(),
+        #                                  normalize])
+        self.trsfm = transforms.Compose([transforms.ToTensor()])
         self.trainset = PosEstimationDataset(self.trainset_info, transform=self.trsfm)
         self.trainloader = DataLoader(self.trainset, batch_size=self.trainset_info["batch_size"], shuffle=True)
 
@@ -41,7 +42,8 @@ class PoseEstimation:
         self.criterion = nn.MSELoss()
 
         # optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-        self.optimizer = optim.Adam(self.net.parameters(), lr=0.001, weight_decay=0.001)
+        # self.optimizer = optim.Adam(self.net.parameters(), lr=0.001, weight_decay=0.001)
+        self.optimizer = optim.Adam(self.net.parameters(), lr=0.0001, weight_decay=0.00001)
 
         # initialise directory for saving training results
         self.save_dir = os.path.join(trainset_info["path"],
@@ -54,6 +56,9 @@ class PoseEstimation:
         self.testloader = DataLoader(self.testset, shuffle=True)
 
     def train(self, show_fig=True, save_output=True, eval_eph=False):
+        # Create directory for saving results
+        os.makedirs(self.save_dir, exist_ok=False)
+
         loss_sample_size = len(self.trainloader) // 4
 
         # Initialise loss array
@@ -106,7 +111,6 @@ class PoseEstimation:
         print('\nFinished Training. Time taken: {}'.format(t1 - t0))
 
         # Save output
-        os.mkdir(self.save_dir)
         if save_output:
             self.save_model_output(train_losses, eph_losses, eph_diff)
 
@@ -139,8 +143,8 @@ class PoseEstimation:
             diff[i] = self.cal_diff(outputs, pos)
             losses[i] = loss.item()
 
-        print("pos: {}".format(pos[-1]))
-        print("output: {}".format(outputs[-1]))
+        print("true   : {}".format(pos[-1]))
+        print("predict: {}".format(outputs[-1]))
         return self.print_avg_stat(losses, diff)
 
     def _use_cuda(self):
@@ -188,9 +192,10 @@ class PoseEstimation:
 
         avg_train_losses = np.average(train_losses.reshape(-1, len(self.trainloader)), axis=1)
         plt.figure()
-        plt.plot(avg_train_losses, label="train")
-        plt.plot(test_losses, label="test")
+        plt.plot(range(1, len(avg_train_losses) + 1), avg_train_losses, label="train")
+        plt.plot(range(1, len(test_losses) + 1), test_losses, label="test")
         plt.ylabel("MSE_losses")
+        plt.xlabel("epoch")
         plt.legend()
         fig_name = "fig_{}_eph{}_bs{}_{}.png".format(self.trainset_info["dataset_name"],
                                                      self.trainset_info["epochs"],
@@ -204,10 +209,12 @@ class PoseEstimation:
         if scatter:
             x = np.arange(len(data))
             plt.scatter(x, data, s=0.8)
+            plt.xlabel("batch")
         else:
-            plt.plot(data)
-        plt.ylabel(ylabel)
+            plt.plot(range(1, len(data) + 1), data)
+            plt.xlabel("epoch")
 
+        plt.ylabel(ylabel)
         fig_name = "fig_{}_eph{}_bs{}_{}.png".format(trainset_info["dataset_name"],
                                                      trainset_info["epochs"],
                                                      trainset_info["batch_size"],
@@ -238,8 +245,8 @@ class PoseEstimation:
         # diff = pos * inv(output)
         # Since the rotvec is the vector of the axis multplited by the angle
         # The angle is found by finding magnitude of the vector
-        out_rot = Rotation.from_euler("zyx", out_np[:, 3:])
-        pos_rot = Rotation.from_euler("zyx", pos_np[:, 3:])
+        out_rot = Rotation.from_euler("zyx", out_np[:, 3:] * np.pi)
+        pos_rot = Rotation.from_euler("zyx", pos_np[:, 3:] * np.pi)
         rot = pos_rot * out_rot.inv()
         diff_angle = rot.as_rotvec()
         diff_rot = np.linalg.norm(diff_angle, axis=1)

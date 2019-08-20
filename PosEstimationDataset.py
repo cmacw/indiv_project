@@ -25,15 +25,16 @@ class PosEstimationDataset(Dataset):
     # Return dictionary of {image, pos}
     def __getitem__(self, idx):
         img_name = os.path.join(self.path, self.dataset_name, self.image_file_name.format(idx, self.cam_id))
-        img = plt.imread(img_name)
+        # img = plt.imread(img_name)
         img = Image.open(img_name)
-        # plt.imshow(img).show()
+        # img.show()
         pos = self.all_pos_euler[idx, :]
 
         if self.transform:
             img = self.transform(img)
 
-        plt.imshow(img.permute(1, 2, 0))
+        # Show image after transform
+        # plt.imshow(img.permute(1, 2, 0))
 
         sample = {"image": img, "pos": pos}
         return sample
@@ -51,8 +52,8 @@ class PosEstimationDataset(Dataset):
         # Transform the rotation to euler
         rot_euler = Rotation.from_dcm(rot_mat).as_euler('zyx')
 
-        # Combine position and euler
-        full_state[:, 3:6] = rot_euler
+        # Combine position and euler. Normalised to [-1, 1]
+        full_state[:, 3:6] = rot_euler / np.pi
 
         # Convert to a pytorch tensor
         pos_euler = torch.from_numpy(full_state[:, :6])

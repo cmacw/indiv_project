@@ -18,11 +18,11 @@ class UnDataSetGenerator(DataSetGenerator):
         self.address = address
         self.port = port
 
-    def create_data_set(self, ndata, radius_range, deg_range, quat, cameras, start=0):
+    def create_data_set(self, ndata, radius_range, deg_range, cameras, start=0):
         self._make_dir()
 
         # initialise the camera position array
-        self.cam_pos = self._get_cam_pos(radius_range, deg_range, quat, ndata)
+        self.cam_pos = self._get_cam_pos(radius_range, deg_range, 0.2, ndata)
 
         # Connect to the unity executable
         print('Connect: ', self.m_remote.connect(address=address, port=port))
@@ -62,7 +62,7 @@ class UnDataSetGenerator(DataSetGenerator):
 
 
 if __name__ == '__main__':
-    os.chdir("datasets")
+    os.chdir("datasets/Set04")
 
     # address and port specify in the unity plugin
     address = "127.0.0.1"
@@ -73,8 +73,8 @@ if __name__ == '__main__':
 
     # Create the dataset
     cameras = ["camera1"]
-    sim = UnDataSetGenerator(address, port, "realistic_un", "cam_pos.csv")
-    sim.create_data_set(15000, [0.25, 0.7], [0, 80], 0.5, cameras)
+    sim = UnDataSetGenerator(address, port, "realistic_un_test", "cam_pos_test.csv")
+    sim.create_data_set(10000, [0.25, 0.7], [-25, 25], cameras)
 
     # Stop timer
     t1 = time.time()

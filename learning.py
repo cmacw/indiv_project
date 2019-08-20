@@ -13,7 +13,7 @@ def run_one_set(dataset):
     trainset_info = {"path": "Train", "dataset_name": dataset, "cam_id": 0,
                      "image_name": "image_t_{}_cam_{}.png",
                      "pos_file_name": "cam_pos.csv",
-                     "ndata": 10000, "epochs": 300, "batch_size": 32}
+                     "ndata": 10000, "epochs": 30, "batch_size": 32}
 
     testset_info = {"path": "Test", "dataset_name": dataset + "_test", "cam_id": 0,
                     "image_name": "image_t_{}_cam_{}.png",
@@ -29,8 +29,11 @@ def run_one_set(dataset):
     # trainer.evaluation()
 
 if __name__ == '__main__':
-    os.chdir("datasets/Set02")
-    datasets = ["random_mj", "random_un", "realistic_mj", "realistic_un"]
+    os.chdir("datasets/Set04")
+    datasets = ["random_mj",  "random_un", "realistic_mj", "realistic_un"]
 
-    run_one_set("realistic_un")
-    # run_all_sets(datasets)
+    # run_one_set("random_un")
+    run_all_sets(datasets)
+
+    # debug = ["01_fixed", "02_radial", "03_2D", "04_3D", "05_3D"]
+    # run_all_sets(debug)

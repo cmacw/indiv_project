@@ -48,6 +48,7 @@ class MjDataSetGenerator(DataSetGenerator):
 
         # initialise the camera position array
         self.cam_pos = self._get_cam_pos(radius_range, deg_range, quat, ndata, start)
+        # self.cam_pos = self._get_debug_cam_pos(radius_range, deg_range, quat, ndata, 4)
 
         # generate dataset
         while True:
@@ -152,9 +153,9 @@ class MjDataSetGenerator(DataSetGenerator):
 
 
 if __name__ == '__main__':
-    os.chdir("datasets")
-    sim = MjDataSetGenerator("../xmls/box.xml", "random_mj",
-                             use_procedural=True, cam_norm_pos_file="cam_norm_pos.csv")
+    os.chdir("datasets/Set04")
+    sim = MjDataSetGenerator("../../xmls/box.xml", "realistic_mj",
+                             use_procedural=False, cam_pos_file="cam_pos.csv")
 
     # preview model
     # sim.on_screen_render("targetcam")
@@ -167,7 +168,7 @@ if __name__ == '__main__':
     png_tex_ids = (5, 15)
 
     # TODO: change the argument so if cam_pos_file is present, no other arguments are needed
-    sim.create_data_set(100000, [0.25, 0.7], [0, 80], 0.5, cameras, target_geom, png_tex_ids)
+    sim.create_data_set(50000, [0.25, 0.7], [-25, 25], 0.2, cameras, target_geom, png_tex_ids)
 
     t1 = time.time()
 

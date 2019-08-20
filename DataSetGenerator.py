@@ -1,7 +1,6 @@
 import os
 from abc import abstractmethod
 
-
 import numpy as np
 import imageio
 
@@ -22,16 +21,16 @@ class DataSetGenerator:
         # Second, scale the normalised array
         # RETURN: n-by-12 np array, 3 for position, 9 for camera orientation in cam_xmat
         r_min, r_max = radius_range
-        rad_min, rad_max = np.asarray(deg_range) * np.pi / 180
+        d_min, d_max = np.asarray(deg_range) / 180 * np.pi
 
         if self.cam_pos_file:
             pos = np.loadtxt(self.cam_pos_file, delimiter=",")
-            assert start < len(pos) and start+n <= len(pos), \
+            assert start < len(pos) and start + n <= len(pos), \
                 "The start and/or end index of the cam pos exceed the ones in the position file."
-            pos = pos[start:start+n, :]
+            pos = pos[start:start + n, :]
         else:
             if self.cam_norm_pos_file:
-                norm = np.loadtxt(self.cam_norm_pos_file, delimiter=",")[start:start+n, :]
+                norm = np.loadtxt(self.cam_norm_pos_file, delimiter=",")[start:start + n, :]
             else:
                 norm = np.random.rand(n, 12)
                 filename = "cam_norm_pos.csv"
@@ -39,11 +38,11 @@ class DataSetGenerator:
 
             # Scale each parameter
             # Col 0: radius, Col 1: angle in horizontal plane,
-            # Col 2: angle in vertical plane measure from vertical axis
-            # e.g. 90 degree points to horizontal plane
+            # Col 2: angle in vertical plane measure from vertical axis, changes around 45 degrees
+            # e.g. 90 degree lies on the horizontal plane
             norm[:, 0] = norm[:, 0] * (r_max - r_min) + r_min
-            norm[:, 1] = norm[:, 1] * 2 * np.pi
-            norm[:, 2] = norm[:, 2] * (rad_max - rad_min) + rad_min
+            norm[:, 1] = norm[:, 1] * (d_max - d_min) + d_min
+            norm[:, 2] = norm[:, 2] * (d_max - d_min) + d_min + np.pi / 4
 
             # Translate to xyz and orientation
             pos = np.zeros([n, 12])
@@ -54,6 +53,39 @@ class DataSetGenerator:
             pos[:, 3:] = (norm[:, 3:] - 0.5) * quat
 
         self.cam_pos = pos
+        return pos
+
+    def _get_debug_cam_pos(self, radius_range, deg_range, quat, n, set_id):
+        # 1: Changing texture
+        # 2: + radial movement
+        # 3: + lateral angle
+        # 4: + elevation angle
+        # 5: + camera wiggle
+        pos = np.zeros([n, 12])
+        if set_id == 1:
+            coord = np.array([0, -0.354, 0.354])
+            pos[:, :3] = np.tile(coord, (n, 1))
+        elif set_id == 2:
+            range = np.arange(radius_range[0], radius_range[1], 0.05)
+            x = np.random.choice(range, n) * np.cos(45 / 180 * np.pi)
+            pos[:, 1], pos[:, 2] = -x, x
+        elif set_id == 3 or set_id == 4 or set_id == 5:
+            r_range = np.arange(radius_range[0], radius_range[1], 0.05)
+            d_range = np.arange(-25, 30, 5) / 180 * np.pi
+            r = np.random.choice(r_range, n)
+            d_horz = np.random.choice(d_range, n)
+            d_vert = 45 / 180 * np.pi
+
+            if set_id == 4 or set_id == 5:
+                d_vert = np.random.choice(np.arange(25, 70, 5) / 180 * np.pi, n)
+
+            if set_id == 5:
+                pos[:, 3:] = (np.random.rand(n, 9) - 0.5) * quat
+
+            pos[:, 0] = r * np.cos(d_horz) * np.sin(d_vert)
+            pos[:, 1] = r * np.sin(d_horz) * np.sin(d_vert)
+            pos[:, 2] = r * np.cos(d_vert)
+
         return pos
 
     def _save_cam_pos(self, pos):

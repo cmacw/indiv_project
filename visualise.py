@@ -7,13 +7,13 @@ import scipy.misc
 from matplotlib import pyplot
 import numpy as np
 
-pos = np.loadtxt("datasets/cam_pos.csv", delimiter=",")
+pos = np.loadtxt("datasets/cam_norm_pos.csv", delimiter=",")
 model = mujoco_py.load_model_from_path("xmls/box.xml")
 
 sim = mujoco_py.MjSim(model)
 print("number of texture {}", sim.model.ntex)
-# viewer = mujoco_py.MjViewer(sim)
-viewer = mujoco_py.MjRenderContextOffscreen(sim, None)
+viewer = mujoco_py.MjViewer(sim)
+# viewer = mujoco_py.MjRenderContextOffscreen(sim, None)
 modder = TextureModder(sim)
 cam_modder = mujoco_py.modder.CameraModder(sim)
 modder.whiten_materials()
@@ -53,7 +53,7 @@ while True:
     cam_id = cam_modder.get_camid(cam_name)
 
     # Use dummy body to check camera pos and orientation
-    sim.model.body_pos[2] = pos[t, 0:3]
+    # sim.model.body_pos[2] = pos[t, 0:3]
     model.cam_pos[cam_id] = pos[t, 0:3]
 
     sim.step()
@@ -64,14 +64,14 @@ while True:
     sim.data.cam_xmat[cam_id] = pos[t, 3:]
 
     # on screen render
-    # viewer.render()
+    viewer.render()
     # print(sim.data.cam_xmat[-1])
 
     # off screen render
-    viewer.render(512, 512, cam_id)
-    rgb = viewer.read_pixels(512, 512)[0][::-1, :, :]
-    filename = "image_t_{}_cam_{}.png".format(t, cam_id)
-    scipy.misc.imsave("datasets/trial" + '/' + filename, rgb)
+    # viewer.render(512, 512, cam_id)
+    # rgb = viewer.read_pixels(512, 512)[0][::-1, :, :]
+    # filename = "image_t_{}_cam_{}.png".format(t, cam_id)
+    # scipy.misc.imsave("datasets/trial" + '/' + filename, rgb)
 
     t += 1
 
