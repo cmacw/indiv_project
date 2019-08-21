@@ -245,8 +245,8 @@ class PoseEstimation:
         # diff = pos * inv(output)
         # Since the rotvec is the vector of the axis multplited by the angle
         # The angle is found by finding magnitude of the vector
-        out_rot = Rotation.from_euler("zyx", out_np[:, 3:] * np.pi)
-        pos_rot = Rotation.from_euler("zyx", pos_np[:, 3:] * np.pi)
+        out_rot = Rotation.from_euler("zyx", out_np[:, 3:] * 2 * np.pi - np.pi)
+        pos_rot = Rotation.from_euler("zyx", pos_np[:, 3:] * 2 * np.pi - np.pi)
         rot = pos_rot * out_rot.inv()
         diff_angle = rot.as_rotvec()
         diff_rot = np.linalg.norm(diff_angle, axis=1)

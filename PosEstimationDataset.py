@@ -52,8 +52,8 @@ class PosEstimationDataset(Dataset):
         # Transform the rotation to euler
         rot_euler = Rotation.from_dcm(rot_mat).as_euler('zyx')
 
-        # Combine position and euler. Normalised to [-1, 1]
-        full_state[:, 3:6] = rot_euler / np.pi
+        # Combine position and euler. Normalised to [0, 1]
+        full_state[:, 3:6] = (rot_euler + np.pi) / (2 * np.pi)
 
         # Convert to a pytorch tensor
         pos_euler = torch.from_numpy(full_state[:, :6])

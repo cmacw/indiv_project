@@ -30,7 +30,7 @@ def run_one_set(dataset):
 
 if __name__ == '__main__':
     os.chdir("datasets/Set04")
-    datasets = ["random_mj",  "random_un", "realistic_mj", "realistic_un"]
+    datasets = ["random_mj", "random_un", "realistic_mj", "realistic_un"]
 
     # run_one_set("random_un")
     run_all_sets(datasets)
