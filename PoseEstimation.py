@@ -41,7 +41,7 @@ class PoseEstimation:
         self.net = Net()
         self.net.to(self.device)
         self.criterion = nn.MSELoss()
-        self.optimizer = optim.Adam(self.net.parameters(), lr=0.001, weight_decay=0.001)
+        self.optimizer = optim.Adam(self.net.parameters(), lr=0.0003, weight_decay=0.001)
         # self.optimizer = optim.Adam(self.net.parameters(), lr=0.0003)
         # self.optimizer = optim.Adam(self.net.parameters(), lr=0.0001, weight_decay=0.00001)
 
@@ -247,11 +247,9 @@ class PoseEstimation:
         # diff = pos * inv(output)
         # Since the rotvec is the vector of the axis multplited by the angle
         # The angle is found by finding magnitude of the vector
-        # out_rot = Rotation.from_euler("zyx", out_np[:, 3:] * 2 * np.pi - np.pi)
-        # pos_rot = Rotation.from_euler("zyx", pos_np[:, 3:] * 2 * np.pi - np.pi)
-        out_rot = Rotation.from_quat(predict_np[:, 3:])
-        pos_rot = Rotation.from_quat(true_np[:, 3:])
-        rot = pos_rot * out_rot.inv()
+        predict_rot = Rotation.from_quat(predict_np[:, 3:])
+        true_rot = Rotation.from_quat(true_np[:, 3:])
+        rot = true_rot * predict_rot.inv()
         diff_angle = rot.as_rotvec()
         error_rot = np.linalg.norm(diff_angle, axis=1)
         error_rot = np.rad2deg(error_rot)

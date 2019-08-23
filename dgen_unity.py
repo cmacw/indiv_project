@@ -62,7 +62,7 @@ class UnDataSetGenerator(DataSetGenerator):
 
 
 if __name__ == '__main__':
-    os.chdir("datasets/Set04")
+    os.chdir("datasets/Set05")
 
     # address and port specify in the unity plugin
     address = "127.0.0.1"
@@ -73,8 +73,8 @@ if __name__ == '__main__':
 
     # Create the dataset
     cameras = ["camera1"]
-    sim = UnDataSetGenerator(address, port, "realistic_un_test", "cam_pos_test.csv")
-    sim.create_data_set(10000, [0.25, 0.7], [-15, 15], cameras)
+    sim = UnDataSetGenerator(address, port, "random_un_test", "cam_pos_test.csv")
+    sim.create_data_set(5000, [0.25, 0.7], [-15, 15], cameras)
 
     # Stop timer
     t1 = time.time()

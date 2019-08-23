@@ -18,7 +18,7 @@ class Net(nn.Module):
         self.conv3_bn = nn.BatchNorm2d(32)
 
         self.fc1 = nn.Linear(7200, 1024)
-        self.fc2 = nn.Linear(1024, 6)
+        self.fc2 = nn.Linear(1024, 7)
 
     def forward(self, x):
         x = nn.functional.relu(self.conv1_bn(self.conv1(x)))

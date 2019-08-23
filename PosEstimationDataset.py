@@ -62,15 +62,6 @@ class PosEstimationDataset(Dataset):
             self.norm_range["max"] = pos_ort.max(axis=0)
             self.norm_range["min"] = pos_ort.min(axis=0)
 
-            # pos_max, pos_min = full_state[:, :3].max(), full_state[:, :3].min()
-            # ang_max, ang_min = rot_euler.max(), rot_euler.min()
-            # self.pos_range = [pos_min, pos_max]
-            # self.ang_range = [ang_min, ang_max]
-        # else:
-        #     [pos_min, pos_max] = self.pos_range
-        #     [ang_min, ang_max] = self.ang_range
-        #     self.norm_range
-
         # Normalised to [0, 1]
         pos_ort_norm = (pos_ort - self.norm_range["min"]) / (self.norm_range["max"] - self.norm_range["min"])
 
