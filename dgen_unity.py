@@ -74,7 +74,7 @@ if __name__ == '__main__':
     # Create the dataset
     cameras = ["camera1"]
     sim = UnDataSetGenerator(address, port, "realistic_un_test", "cam_pos_test.csv")
-    sim.create_data_set(10000, [0.25, 0.7], [-25, 25], cameras)
+    sim.create_data_set(10000, [0.25, 0.7], [-15, 15], cameras)
 
     # Stop timer
     t1 = time.time()

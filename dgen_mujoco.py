@@ -153,9 +153,9 @@ class MjDataSetGenerator(DataSetGenerator):
 
 
 if __name__ == '__main__':
-    os.chdir("datasets/Set04")
-    sim = MjDataSetGenerator("../../xmls/box.xml", "realistic_mj",
-                             use_procedural=False, cam_pos_file="cam_pos.csv")
+    os.chdir("datasets/Set05")
+    sim = MjDataSetGenerator("../../xmls/box.xml", "random_mj",
+                             use_procedural=True, cam_pos_file="cam_pos.csv")
 
     # preview model
     # sim.on_screen_render("targetcam")
@@ -168,7 +168,7 @@ if __name__ == '__main__':
     png_tex_ids = (5, 15)
 
     # TODO: change the argument so if cam_pos_file is present, no other arguments are needed
-    sim.create_data_set(50000, [0.25, 0.7], [-25, 25], 0.2, cameras, target_geom, png_tex_ids)
+    sim.create_data_set(50000, [0.25, 0.7], [-10, 10], 0.1, cameras, target_geom, png_tex_ids)
 
     t1 = time.time()
 
