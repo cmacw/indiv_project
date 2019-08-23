@@ -41,9 +41,9 @@ class PoseEstimation:
         self.net = Net()
         self.net.to(self.device)
         self.criterion = nn.MSELoss()
-        # self.optimizer = optim.Adam(self.net.parameters(), lr=0.001, weight_decay=0.001)
+        self.optimizer = optim.Adam(self.net.parameters(), lr=0.001, weight_decay=0.001)
         # self.optimizer = optim.Adam(self.net.parameters(), lr=0.0003)
-        self.optimizer = optim.Adam(self.net.parameters(), lr=0.0001, weight_decay=0.00001)
+        # self.optimizer = optim.Adam(self.net.parameters(), lr=0.0001, weight_decay=0.00001)
 
         # initialise directory for saving training results
         self.save_dir = os.path.join(trainset_info["path"],
@@ -140,7 +140,7 @@ class PoseEstimation:
             loss = self.criterion(outputs, pos)
 
             # Calculate the difference in euclidean distance and angles
-            diff[i] = self.cal_diff(outputs, pos)
+            diff[i] = self.cal_error(outputs, pos)
             losses[i] = loss.item()
 
         print("true   : {}".format(pos[-1]))
@@ -231,30 +231,32 @@ class PoseEstimation:
         file_path = os.path.join(self.save_dir, file_name)
         np.savetxt(file_path, data, delimiter=",")
 
-    def cal_diff(self, predict, true):
+    def cal_error(self, predict, true):
         # predict and ture has size [batch_size, 6]
         # [:, :3] is the translational position
         # [:, 3:] is the rotation in euler angle
         # De-normalise
-        out_np = self._denormalise(predict.cpu().detach().numpy())
-        pos_np = self._denormalise(true.cpu().detach().numpy())
+        predict_np = self._denormalise(predict.cpu().detach().numpy())
+        true_np = self._denormalise(true.cpu().detach().numpy())
 
         # Get the euclidean distance
-        diff_distances = np.linalg.norm((out_np[:, :3] - pos_np[:, :3]), axis=1)
+        error_distances = np.linalg.norm((predict_np[:, :3] - true_np[:, :3]), axis=1)
 
         # Calculate the rotation angle from predicated(output) to true(input)
         # diff * output = pos
         # diff = pos * inv(output)
         # Since the rotvec is the vector of the axis multplited by the angle
         # The angle is found by finding magnitude of the vector
-        out_rot = Rotation.from_euler("zyx", out_np[:, 3:] * 2 * np.pi - np.pi)
-        pos_rot = Rotation.from_euler("zyx", pos_np[:, 3:] * 2 * np.pi - np.pi)
+        # out_rot = Rotation.from_euler("zyx", out_np[:, 3:] * 2 * np.pi - np.pi)
+        # pos_rot = Rotation.from_euler("zyx", pos_np[:, 3:] * 2 * np.pi - np.pi)
+        out_rot = Rotation.from_quat(predict_np[:, 3:])
+        pos_rot = Rotation.from_quat(true_np[:, 3:])
         rot = pos_rot * out_rot.inv()
         diff_angle = rot.as_rotvec()
-        diff_rot = np.linalg.norm(diff_angle, axis=1)
-        diff_rot = np.rad2deg(diff_rot)
+        error_rot = np.linalg.norm(diff_angle, axis=1)
+        error_rot = np.rad2deg(error_rot)
 
-        return [diff_distances, diff_rot]
+        return [error_distances, error_rot]
 
     def _denormalise(self, pos):
         return pos * (self.norm_range["max"] - self.norm_range["min"]) + self.norm_range["min"]

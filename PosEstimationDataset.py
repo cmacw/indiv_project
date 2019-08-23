@@ -51,13 +51,14 @@ class PosEstimationDataset(Dataset):
 
         # Transform the rotation to euler
         rot_mat = np.reshape(full_state[:, 3:], (-1, 3, 3))
-        rot_euler = Rotation.from_dcm(rot_mat).as_euler('zyx')
+        ort = Rotation.from_dcm(rot_mat).as_quat()
 
         # Reconstruct the pos and euler array
-        pos_ort = np.concatenate((full_state[:, :3], rot_euler), axis=1)
+        pos_ort = np.concatenate((full_state[:, :3], ort), axis=1)
 
         # Get the max and min for angles and position if nor provided
         if self.norm_range is None:
+            self.norm_range = {}
             self.norm_range["max"] = pos_ort.max(axis=0)
             self.norm_range["min"] = pos_ort.min(axis=0)
 
@@ -74,9 +75,9 @@ class PosEstimationDataset(Dataset):
         pos_ort_norm = (pos_ort - self.norm_range["min"]) / (self.norm_range["max"] - self.norm_range["min"])
 
         # Convert to a pytorch tensor
-        pos_euler_tensor = torch.from_numpy(pos_ort_norm)
+        pos_ort_tensor = torch.from_numpy(pos_ort_norm)
 
-        return pos_euler_tensor.float()
+        return pos_ort_tensor.float()
 
     def get_norm_range(self):
         return self.norm_range
