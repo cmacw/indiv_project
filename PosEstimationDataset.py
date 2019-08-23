@@ -9,7 +9,7 @@ from torch.utils.data import Dataset
 
 
 class PosEstimationDataset(Dataset):
-    def __init__(self, set_info, transform=None, pos_range=None, ang_range=None):
+    def __init__(self, set_info, transform=None, norm_range=None):
         self.path = set_info["path"]
         self.dataset_name = set_info["dataset_name"]
         self.pos_file_name = set_info["pos_file_name"]
@@ -17,8 +17,7 @@ class PosEstimationDataset(Dataset):
         self.size = set_info["ndata"]
         self.cam_id = set_info["cam_id"]
         self.transform = transform
-        self.pos_range = pos_range
-        self.ang_range = ang_range
+        self.norm_range = norm_range
         self.all_pos_euler = self._prepare_pos(self.path + "/" + self.pos_file_name, self.size)
 
     def __len__(self):
@@ -54,27 +53,31 @@ class PosEstimationDataset(Dataset):
         rot_mat = np.reshape(full_state[:, 3:], (-1, 3, 3))
         rot_euler = Rotation.from_dcm(rot_mat).as_euler('zyx')
 
-        # Get the max and min for angles and position if nor provided
-        if self.pos_range is None and self.ang_range is None:
-            pos_max, pos_min = full_state[:, :3].max(), full_state[:, :3].min()
-            ang_max, ang_min = rot_euler.max(), rot_euler.min()
-            self.pos_range = [pos_min, pos_max]
-            self.ang_range = [ang_min, ang_max]
-        else:
-            [pos_min, pos_max] = self.pos_range
-            [ang_min, ang_max] = self.ang_range
+        # Reconstruct the pos and euler array
+        pos_ort = np.concatenate((full_state[:, :3], rot_euler), axis=1)
 
-        # Normalised to [0, 1]. Combine position and euler.
-        full_state[:, :3] = (full_state[:, :3] - pos_min) / (pos_max - pos_min)
-        full_state[:, 3:6] = (rot_euler - ang_min) / (ang_max - ang_min)
+        # Get the max and min for angles and position if nor provided
+        if self.norm_range is None:
+            self.norm_range["max"] = pos_ort.max(axis=0)
+            self.norm_range["min"] = pos_ort.min(axis=0)
+
+            # pos_max, pos_min = full_state[:, :3].max(), full_state[:, :3].min()
+            # ang_max, ang_min = rot_euler.max(), rot_euler.min()
+            # self.pos_range = [pos_min, pos_max]
+            # self.ang_range = [ang_min, ang_max]
+        # else:
+        #     [pos_min, pos_max] = self.pos_range
+        #     [ang_min, ang_max] = self.ang_range
+        #     self.norm_range
+
+        # Normalised to [0, 1]
+        pos_ort_norm = (pos_ort - self.norm_range["min"]) / (self.norm_range["max"] - self.norm_range["min"])
 
         # Convert to a pytorch tensor
-        pos_euler = torch.from_numpy(full_state[:, :6])
+        pos_euler_tensor = torch.from_numpy(pos_ort_norm)
 
-        return pos_euler.float()
+        return pos_euler_tensor.float()
 
-    def get_angle_range(self):
-        return self.ang_range
+    def get_norm_range(self):
+        return self.norm_range
 
-    def get_pos_range(self):
-        return self.pos_range

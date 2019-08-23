@@ -30,8 +30,7 @@ class PoseEstimation:
         #                                  normalize])
         self.trsfm = transforms.Compose([transforms.ToTensor()])
         self.trainset = PosEstimationDataset(self.trainset_info, transform=self.trsfm)
-        self.pos_range = self.trainset.get_pos_range()
-        self.ang_range = self.trainset.get_angle_range()
+        self.norm_range = self.trainset.get_norm_range()
         self.trainloader = DataLoader(self.trainset, batch_size=self.trainset_info["batch_size"], shuffle=True)
 
         # Set up testset
@@ -43,16 +42,17 @@ class PoseEstimation:
         self.net.to(self.device)
         self.criterion = nn.MSELoss()
         # self.optimizer = optim.Adam(self.net.parameters(), lr=0.001, weight_decay=0.001)
-        self.optimizer = optim.Adam(self.net.parameters(), lr=0.0003)
+        # self.optimizer = optim.Adam(self.net.parameters(), lr=0.0003)
+        self.optimizer = optim.Adam(self.net.parameters(), lr=0.0001, weight_decay=0.00001)
 
         # initialise directory for saving training results
         self.save_dir = os.path.join(trainset_info["path"],
                                      trainset_info["dataset_name"] + "_results",
                                      "eph{}_bs{}".format(trainset_info["epochs"], trainset_info["batch_size"]))
 
-    def load_test_set(self, testset_info, pos_range=None, ang_range=None):
+    def load_test_set(self, testset_info):
         self.testset_info = testset_info
-        self.testset = PosEstimationDataset(self.testset_info, self.trsfm, self.pos_range, self.ang_range)
+        self.testset = PosEstimationDataset(self.testset_info, self.trsfm, self.norm_range)
         self.testloader = DataLoader(self.testset, shuffle=True)
 
     def train(self, show_fig=True, save_output=True, eval_eph=False):
@@ -257,9 +257,7 @@ class PoseEstimation:
         return [diff_distances, diff_rot]
 
     def _denormalise(self, pos):
-        pos[:, :3] = pos[:, :3] * (max(self.pos_range) - min(self.pos_range)) + min(self.pos_range)
-        pos[:, 3:] = pos[:, 3:] * (max(self.ang_range) - min(self.ang_range)) + min(self.ang_range)
-        return pos
+        return pos * (self.norm_range["max"] - self.norm_range["min"]) + self.norm_range["min"]
 
     def load_model_parameter(self, path):
         self.net.load_state_dict(torch.load(path))
