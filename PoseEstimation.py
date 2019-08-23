@@ -30,6 +30,8 @@ class PoseEstimation:
         #                                  normalize])
         self.trsfm = transforms.Compose([transforms.ToTensor()])
         self.trainset = PosEstimationDataset(self.trainset_info, transform=self.trsfm)
+        self.pos_range = self.trainset.get_pos_range()
+        self.ang_range = self.trainset.get_angle_range()
         self.trainloader = DataLoader(self.trainset, batch_size=self.trainset_info["batch_size"], shuffle=True)
 
         # Set up testset
@@ -40,19 +42,17 @@ class PoseEstimation:
         self.net = Net()
         self.net.to(self.device)
         self.criterion = nn.MSELoss()
-
-        # optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
         # self.optimizer = optim.Adam(self.net.parameters(), lr=0.001, weight_decay=0.001)
-        self.optimizer = optim.Adam(self.net.parameters(), lr=0.0001, weight_decay=0.00001)
+        self.optimizer = optim.Adam(self.net.parameters(), lr=0.0003)
 
         # initialise directory for saving training results
         self.save_dir = os.path.join(trainset_info["path"],
                                      trainset_info["dataset_name"] + "_results",
                                      "eph{}_bs{}".format(trainset_info["epochs"], trainset_info["batch_size"]))
 
-    def load_test_set(self, testset_info):
+    def load_test_set(self, testset_info, pos_range=None, ang_range=None):
         self.testset_info = testset_info
-        self.testset = PosEstimationDataset(self.testset_info, transform=self.trsfm)
+        self.testset = PosEstimationDataset(self.testset_info, self.trsfm, self.pos_range, self.ang_range)
         self.testloader = DataLoader(self.testset, shuffle=True)
 
     def train(self, show_fig=True, save_output=True, eval_eph=False):
@@ -208,7 +208,8 @@ class PoseEstimation:
         plt.figure()
         if scatter:
             x = np.arange(len(data))
-            plt.scatter(x, data, s=0.8)
+            plt.plot(x, data, marker='o', markersize=0.6, linewidth='0')
+            plt.yscale("log")
             plt.xlabel("batch")
         else:
             plt.plot(range(1, len(data) + 1), data)
@@ -234,8 +235,9 @@ class PoseEstimation:
         # predict and ture has size [batch_size, 6]
         # [:, :3] is the translational position
         # [:, 3:] is the rotation in euler angle
-        out_np = predict.cpu().detach().numpy()
-        pos_np = true.cpu().detach().numpy()
+        # De-normalise
+        out_np = self._denormalise(predict.cpu().detach().numpy())
+        pos_np = self._denormalise(true.cpu().detach().numpy())
 
         # Get the euclidean distance
         diff_distances = np.linalg.norm((out_np[:, :3] - pos_np[:, :3]), axis=1)
@@ -253,6 +255,11 @@ class PoseEstimation:
         diff_rot = np.rad2deg(diff_rot)
 
         return [diff_distances, diff_rot]
+
+    def _denormalise(self, pos):
+        pos[:, :3] = pos[:, :3] * (max(self.pos_range) - min(self.pos_range)) + min(self.pos_range)
+        pos[:, 3:] = pos[:, 3:] * (max(self.ang_range) - min(self.ang_range)) + min(self.ang_range)
+        return pos
 
     def load_model_parameter(self, path):
         self.net.load_state_dict(torch.load(path))
