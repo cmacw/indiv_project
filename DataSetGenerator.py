@@ -42,7 +42,8 @@ class DataSetGenerator:
             # e.g. 90 degree lies on the horizontal plane
             norm[:, 0] = norm[:, 0] * (r_max - r_min) + r_min
             norm[:, 1] = norm[:, 1] * (d_max - d_min) + d_min
-            norm[:, 2] = norm[:, 2] * (d_max - d_min) + d_min + np.pi / 4
+            # This is reflected because deg range is in the negative range.
+            norm[:, 2] = -(norm[:, 2] * (d_max - d_min) + d_min + np.pi / 4)
 
             # Translate to xyz and orientation
             pos = np.zeros([n, 12])
@@ -108,5 +109,5 @@ class DataSetGenerator:
 
     def print_progress(self, ndata, t):
         # Print progress
-        if t % 100 == 0:
+        if t % 500 == 0:
             print("Progress: {} / {}".format(t, ndata))

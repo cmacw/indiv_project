@@ -9,7 +9,7 @@
             https://www.roboti.us/resourcelicense.txt
     -->
     <visual>
-        <global offwidth="128" offheight="128"/>
+        <global offwidth="640" offheight="480" fovy="45"/>
         <headlight ambient="0.5 0.5 0.5"/>
         <quality shadowsize="512"/>
         <map znear="0.001"/>
@@ -47,8 +47,10 @@
     <worldbody>
         <geom name="ground" type="plane" size="100 100 0.1" pos="0 0 0" quat="1 0 0 0" material="matplane" condim="1"/>
 
-        <body name="box" pos="0 0 0.025">
-            <geom name="boxgeom" size="0.025 0.025 0.025" type="box" material="matbox"/>
+        <body name="box" pos="0 0 0.0145">
+            <geom name="boxgeom" size="0.01975 0.0135 0.0145" type="box" material="matbox"/>
+
+            <!--            <geom name="boxgeom" size="0.063 0.017 0.010" type="box" material="matbox"/>-->
             <!--<joint axis="1 0 0" name="box:x" type="slide"/>-->
             <!--<joint axis="0 1 0" name="box:y" type="slide"/>-->
             <!--<joint axis="0 0 1" name="box:z" type="slide"/>-->
@@ -57,10 +59,10 @@
         <!--<geom name="wall" type="box" size="10 0.01 10" pos="0 5 0" material="matwall"/>-->
 
         <light name="light1" pos="0 -5 10" mode="targetbody" target="box" directional="false"/>
+        <light name="light2" pos="0 -5 10" mode="targetbody" target="box" directional="false"/>
 
-        <camera name="targetcam" pos="0 -10 10" mode="targetbody" target="box"/>
-        <camera name="testcam" pos="0 -10 10" euler="30 0 0"/>
-        <camera name="testcam2" pos="0 -10 10" euler="30 0 0"/>
+
+        <camera name="targetcam" pos="0 -0.282 0.0145" mode="targetbody" target="box" fovy="45"/>
 
         <!--        <body pos="0 05 1">-->
         <!--            <geom name="dummy" type="box" size="0.1 0.05 0.05"/>-->

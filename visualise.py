@@ -8,7 +8,7 @@ from matplotlib import pyplot
 import numpy as np
 
 pos = np.loadtxt("datasets/cam_norm_pos.csv", delimiter=",")
-model = mujoco_py.load_model_from_path("xmls/box.xml")
+model = mujoco_py.load_model_from_path("xmls/effect_visualise.xml")
 
 sim = mujoco_py.MjSim(model)
 print("number of texture {}", sim.model.ntex)
@@ -41,6 +41,10 @@ while True:
     # Change texture
     # for name in sim.model.geom_names:
     #     modder.rand_all(name)
+    # modder.rand_gradient("boxgeom4")
+    # modder.rand_checker("boxgeom1")
+    # modder.rand_noise("boxgeom3")
+    # modder.rand_rgb("boxgeom2")
 
     # Change opengl parameters
     # sim.model.mat_emission[1] = sample_values[t % 10]
@@ -49,19 +53,19 @@ while True:
     # sim.model.mat_reflectance[1] = sample_values[t % 10]
     # print(sample_values[t % 10])
 
-    cam_name = "testcam"
+    cam_name = "targetcam"
     cam_id = cam_modder.get_camid(cam_name)
 
     # Use dummy body to check camera pos and orientation
     # sim.model.body_pos[2] = pos[t, 0:3]
-    model.cam_pos[cam_id] = pos[t, 0:3]
+    # model.cam_pos[cam_id] = pos[t, 0:3]
 
     sim.step()
 
     # Change camera position
     # sim.data.body_xmat[2] = pos[t, 3:]
     # print(pos[t, 3:])
-    sim.data.cam_xmat[cam_id] = pos[t, 3:]
+    # sim.data.cam_xmat[cam_id] = pos[t, 3:]
 
     # on screen render
     viewer.render()

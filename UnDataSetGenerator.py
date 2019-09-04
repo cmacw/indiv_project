@@ -5,7 +5,7 @@ from random import uniform
 import numpy as np
 from matplotlib import pyplot
 import pickle
-import dgen_mujoco
+import MjDataSetGenerator
 import scipy
 
 from DataSetGenerator import DataSetGenerator
@@ -25,7 +25,7 @@ class UnDataSetGenerator(DataSetGenerator):
         self.cam_pos = self._get_cam_pos(radius_range, deg_range, 0.2, ndata)
 
         # Connect to the unity executable
-        print('Connect: ', self.m_remote.connect(address=address, port=port))
+        print('Connect: ', self.m_remote.connect(address=self.address, port=self.port))
 
         t = start
 
@@ -33,8 +33,13 @@ class UnDataSetGenerator(DataSetGenerator):
         b = bytearray(3 * self.m_remote.width * self.m_remote.height)
 
         # Set the camera
-        self.m_remote.setcamera(0)
+        cam_id = 0
+        self.m_remote.setcamera(cam_id)
         while True:
+            # dummy_pos = np.array([0, -0.075, 0.0145, 1, 0, 0, 0, 0, -1, 0, 1,
+            #                       0])  # 0, 0.680768502606714, -0.732498631984124, 0, 0.732498631984124,  0.680768502606714])
+            # self.m_remote.setcamposrot(dummy_pos, b)
+
             self.m_remote.setcamposrot(self.cam_pos[t, :], b)
 
             # Save the screen shot to the buffer b
@@ -43,7 +48,6 @@ class UnDataSetGenerator(DataSetGenerator):
             # Save the image
             rgb = np.reshape(b, (self.m_remote.height, self.m_remote.width, 3))[::-1, :, :]
             # TODO: find out cam id function in Unity
-            cam_id = 0
             self._save_fig_to_dir(rgb, t, cam_id)
             # pyplot.imshow(rgb)
             # pyplot.show()
@@ -60,23 +64,20 @@ class UnDataSetGenerator(DataSetGenerator):
 
         self.m_remote.close()
 
-
 if __name__ == '__main__':
-    os.chdir("datasets/Set05")
+    os.chdir("datasets/Set06")
 
     # address and port specify in the unity plugin
     address = "127.0.0.1"
     port = 1050
 
-    # Begin timer
-    t0 = time.time()
+    cameras = ["targetcam"]
 
     # Create the dataset
-    cameras = ["camera1"]
-    sim = UnDataSetGenerator(address, port, "random_un_test", "cam_pos_test.csv")
-    sim.create_data_set(5000, [0.25, 0.7], [-15, 15], cameras)
-
+    # Begin timer
+    t0 = time.time()
+    sim = UnDataSetGenerator(address, port, "realistic_un_valid", "cam_pos_valid.csv")
+    sim.create_data_set(1000, [0.07, 0.5], [-100, -80], cameras)
     # Stop timer
     t1 = time.time()
-
     print('Time taken: ', (t1 - t0))

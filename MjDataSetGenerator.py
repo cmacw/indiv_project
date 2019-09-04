@@ -9,7 +9,8 @@ from DataSetGenerator import DataSetGenerator
 
 
 class MjDataSetGenerator(DataSetGenerator):
-    IMG_SIZE = 128
+    IMG_HEIGHT = 480
+    IMG_WIDTH = 640
 
     def __init__(self, model_path, dataset_name, use_procedural=False, cam_pos_file=None, cam_norm_pos_file=None):
         super().__init__(dataset_name, cam_pos_file=cam_pos_file, cam_norm_pos_file=cam_norm_pos_file)
@@ -70,8 +71,8 @@ class MjDataSetGenerator(DataSetGenerator):
             for cam in cameras:
                 self._set_cam_orientation(cam, t)
                 cam_id = self.cam_modder.get_camid(cam)
-                self.viewer.render(self.IMG_SIZE, self.IMG_SIZE, cam_id)
-                rgb = self.viewer.read_pixels(self.IMG_SIZE, self.IMG_SIZE)[0][::-1, :, :]
+                self.viewer.render(self.IMG_WIDTH, self.IMG_HEIGHT, cam_id)
+                rgb = self.viewer.read_pixels( self.IMG_WIDTH, self.IMG_HEIGHT)[0][::-1, :, :]
                 self._save_fig_to_dir(rgb, t, cam_id)
 
             # Time advance one
@@ -148,28 +149,28 @@ class MjDataSetGenerator(DataSetGenerator):
         # set position
         # index of light is hard coded for now
         # TODO: get light index by name
-        self.model.light_pos[0, 0] = uniform(-10, 10)
-        self.model.light_pos[0, 1] = uniform(-10, 5)
+        for i in range(len(self.model.light_pos)):
+            self.model.light_pos[i, 0] = uniform(-10, 10)
+            self.model.light_pos[i, 1] = uniform(-10, 5)
 
 
 if __name__ == '__main__':
-    os.chdir("datasets/Set05")
-    sim = MjDataSetGenerator("../../xmls/box.xml", "realistic_mj_test",
-                             use_procedural=False, cam_pos_file="cam_pos_test.csv")
-
-    # preview model
-    # sim.on_screen_render("targetcam")
-
-    t0 = time.time()
-
-    # create dataset
+    os.chdir("datasets/Set06")
     cameras = ["targetcam"]
     target_geom = {"cube": "boxgeom", "ground": "ground"}
     png_tex_ids = (5, 15)
 
-    # TODO: change the argument so if cam_pos_file is present, no other arguments are needed
-    sim.create_data_set(5000, [0.25, 0.7], [-10, 10], 0.1, cameras, target_geom, png_tex_ids)
 
+    sim = MjDataSetGenerator("../../xmls/box.xml", "random_mj_validate",
+                             use_procedural=True, cam_pos_file="cam_pos_valid.csv")
+
+    # preview model
+    # sim.on_screen_render("targetcam")
+
+    t0 = time.time() #1310
+    # create dataset
+    # TODO: change the argument so if cam_pos_file is present, no other arguments are needed
+    sim.create_data_set(1000, [0.07, 0.5], [-100, -80], 0.1, cameras, target_geom, png_tex_ids)
     t1 = time.time()
 
-    print(f"Time to complete: {t1 - t0} seconds")
+    print("Time to complete:  {} seconds".format((t1 - t0)))
